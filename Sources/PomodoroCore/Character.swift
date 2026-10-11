@@ -1,6 +1,21 @@
 import CoreGraphics
 import Foundation
 
+/// An opt-in companion between the existing phase-change performances.
+public enum CharacterIdleMode: String, Codable, Sendable, CaseIterable, Identifiable {
+    case off, calm, stroll
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .off: "Off"
+        case .calm: "Calm"
+        case .stroll: "Stroll"
+        }
+    }
+}
+
 /// Who pops out from behind the floating pill when a phase changes.
 ///
 /// Named `PomodoroCharacter` rather than `Character` because the latter is a

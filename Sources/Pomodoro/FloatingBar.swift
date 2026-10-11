@@ -131,6 +131,11 @@ final class FloatingBar: NSPanel {
     /// The pill's current hit rect, shared with AppKit hit testing.
     let geometry = BarGeometry()
 
+    private var companionVisible = false
+    private var sessionActive = true
+    private var screensAwake = true
+    private var systemAwake = true
+
     init(controller: TimerController, settings: PomodoroSettings) {
         super.init(
             contentRect: NSRect(origin: .zero, size: Self.panelSize),
@@ -170,6 +175,23 @@ final class FloatingBar: NSPanel {
         contentView = host
 
         restorePosition(settings: settings)
+        stage.idleMode = settings.characterIdleMode
+        updateCompanionScreenBounds()
+        NotificationCenter.default.addObserver(self, selector: #selector(updateCompanionScreenBounds),
+                                                name: NSWindow.didMoveNotification, object: self)
+        NotificationCenter.default.addObserver(self, selector: #selector(updateCompanionScreenBounds),
+                                                name: NSWindow.didChangeScreenNotification, object: self)
+        NotificationCenter.default.addObserver(self, selector: #selector(updateCompanionScreenBounds),
+                                                name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        let workspace = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.sessionDidResignActiveNotification, NSWorkspace.willSleepNotification,
+                     NSWorkspace.screensDidSleepNotification] {
+            workspace.addObserver(self, selector: #selector(companionWorkspaceChanged(_:)), name: name, object: nil)
+        }
+        for name in [NSWorkspace.sessionDidBecomeActiveNotification, NSWorkspace.didWakeNotification,
+                     NSWorkspace.screensDidWakeNotification] {
+            workspace.addObserver(self, selector: #selector(companionWorkspaceChanged(_:)), name: name, object: nil)
+        }
     }
 
     /// Borderless panels aren't key by default, which would stop the buttons
@@ -178,6 +200,34 @@ final class FloatingBar: NSPanel {
     override var canBecomeKey: Bool { true }
 
     // MARK: - Position
+
+    func setCompanionVisible(_ visible: Bool) {
+        companionVisible = visible
+        stage.companionActive = visible && sessionActive && screensAwake && systemAwake
+    }
+
+    @objc private func companionWorkspaceChanged(_ notification: Notification) {
+        switch notification.name {
+        case NSWorkspace.sessionDidResignActiveNotification: sessionActive = false
+        case NSWorkspace.sessionDidBecomeActiveNotification: sessionActive = true
+        case NSWorkspace.screensDidSleepNotification: screensAwake = false
+        case NSWorkspace.screensDidWakeNotification: screensAwake = true
+        case NSWorkspace.willSleepNotification: systemAwake = false
+        case NSWorkspace.didWakeNotification: systemAwake = true
+        default: return
+        }
+        setCompanionVisible(companionVisible)
+        updateCompanionScreenBounds()
+    }
+
+    @objc private func updateCompanionScreenBounds() {
+        guard let visible = (screen ?? NSScreen.main)?.visibleFrame else { return }
+        // AppKit's screen origin is bottom-left; the artwork uses top-left panel
+        // coordinates. Use this panel's own display, including negative origins.
+        stage.idleScreenBounds = CGRect(x: visible.minX - frame.minX,
+                                         y: frame.maxY - visible.maxY,
+                                         width: visible.width, height: visible.height)
+    }
 
     /// The stored origin is the *pill's*, not the panel's.
     ///
@@ -472,6 +522,17 @@ struct FloatingBarView: View {
             )
             // Normally behind the pill; in front for the cue that steps forward.
             .zIndex(stage.foreground ? 2 : 0)
+
+            if stage.showsCompanion {
+                IdleCompanion(
+                    character: stage.character, mode: stage.idleMode,
+                    pill: isCompact ? FloatingBar.compactFrame : FloatingBar.pillFrame,
+                    screen: stage.idleScreenBounds,
+                    readoutCenterX: FloatingBar.pillFrame.minX + M.leading + M.ring + M.ringGap + M.readout / 2
+                )
+                .id("\(stage.character.rawValue)-\(stage.idleMode.rawValue)")
+                .zIndex(0)
+            }
 
             pill
                 .scaleEffect(stage.pillScale, anchor: .center)

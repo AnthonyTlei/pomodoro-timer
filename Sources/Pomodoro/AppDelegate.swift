@@ -48,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             controller.settingsChanged()
             floatingBar?.stage.character = settings.character
+            floatingBar?.stage.idleMode = settings.characterIdleMode
             floatingBar?.presentation.setCompactEnabled(settings.compactFloatingBar)
             syncFloatingBarVisibility()
             if !settings.controlMusic { music.forgetPaused() }
@@ -208,9 +209,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 observeFloatingBarMoves()
             }
             floatingBar?.orderFrontRegardless()
+            floatingBar?.setCompanionVisible(true)
         } else {
             floatingBar?.persistPosition(to: settings)
             floatingBar?.orderOut(nil)
+            floatingBar?.setCompanionVisible(false)
         }
         menuBar.refresh()
     }

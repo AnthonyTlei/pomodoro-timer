@@ -46,6 +46,12 @@ A draggable glass pill with a progress ring, the countdown and the phase. Play a
 ### 🎭&nbsp; Six characters
 A samurai, a ninja, a man in a rabbit suit, a general, Power and Boa Hancock. Each has its own move for focus start, break start and long break. They are decoration; the notification and the chime do the real work.
 
+In **Settings → Character → Always-on character**, choose **Calm** for a small idle
+companion or **Stroll** for occasional short walks. **Off** is the default and keeps
+the original phase-change-only behavior. The mini follows the pill in compact mode,
+uses the space below it when there is no room above, and yields to the full-size
+performances. Reduce Motion keeps the mini still.
+
 </td>
 <td valign="top">
 

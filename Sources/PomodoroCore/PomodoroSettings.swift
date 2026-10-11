@@ -26,6 +26,7 @@ public final class PomodoroSettings {
         case compactFloatingBar
         case launchAtLogin
         case character
+        case characterIdleMode
         case floatingBarX
         case floatingBarY
     }
@@ -57,6 +58,7 @@ public final class PomodoroSettings {
             Key.compactFloatingBar.rawValue: false,
             Key.launchAtLogin.rawValue: false,
             Key.character.rawValue: PomodoroCharacter.none.rawValue,
+            Key.characterIdleMode.rawValue: CharacterIdleMode.off.rawValue,
         ])
     }
 
@@ -175,6 +177,20 @@ public final class PomodoroSettings {
             // what goes into `UserDefaults` here is the raw string, not the enum.
             withMutation(keyPath: \.character) {
                 defaults.set(newValue.rawValue, forKey: Key.character.rawValue)
+            }
+            onChange?()
+        }
+    }
+
+    /// Missing or unrecognised values preserve the original phase-change-only UI.
+    public var characterIdleMode: CharacterIdleMode {
+        get {
+            access(keyPath: \.characterIdleMode)
+            return CharacterIdleMode(rawValue: defaults.string(forKey: Key.characterIdleMode.rawValue) ?? "") ?? .off
+        }
+        set {
+            withMutation(keyPath: \.characterIdleMode) {
+                defaults.set(newValue.rawValue, forKey: Key.characterIdleMode.rawValue)
             }
             onChange?()
         }

@@ -350,7 +350,20 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
 
-            Text("A character pops out from behind the floating bar when a phase changes, does a short move, and disappears. It's decoration — the notification and chime still do the real work.")
+            Text("Your character performs when a phase changes. You can also keep a mini companion beside the floating bar between performances.")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker("Always-on character", selection: $settings.characterIdleMode) {
+                ForEach(CharacterIdleMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(settings.character == .none || !settings.showFloatingBar)
+
+            Text("Off keeps phase-change animations only. Calm adds subtle idle movement; Stroll adds occasional short walks. Reduce Motion keeps the companion still.")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

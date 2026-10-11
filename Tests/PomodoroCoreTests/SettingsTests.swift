@@ -80,4 +80,20 @@ struct SettingsTests {
 
         #expect(calls == 2)
     }
+
+    @Test("The idle companion is opt-in, persists, and tolerates future values")
+    func idleCompanionSettings() {
+        let defaults = makeDefaults()
+        let first = PomodoroSettings(defaults: defaults)
+        #expect(first.characterIdleMode == .off)
+        var calls = 0
+        first.onChange = { calls += 1 }
+        for mode in CharacterIdleMode.allCases {
+            first.characterIdleMode = mode
+            #expect(PomodoroSettings(defaults: defaults).characterIdleMode == mode)
+        }
+        #expect(calls == 3)
+        defaults.set("future-mode", forKey: PomodoroSettings.Key.characterIdleMode.rawValue)
+        #expect(PomodoroSettings(defaults: defaults).characterIdleMode == .off)
+    }
 }
