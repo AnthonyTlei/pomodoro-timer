@@ -887,6 +887,34 @@ private struct ControlSurface: ViewModifier {
 
 // MARK: - Hit testing
 
+/// Moves the panel from native mouse events instead of depending on SwiftUI to
+/// forward an unhandled background click. Screen coordinates keep the pointer
+/// anchored to the readout as the panel moves across displays.
+final class WindowDragView: NSView {
+    private var startMouse: NSPoint?
+    private var startFrame: NSRect?
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        startMouse = window.convertPoint(toScreen: event.locationInWindow)
+        startFrame = window.frame
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window, let startMouse, let startFrame else { return }
+        let mouse = window.convertPoint(toScreen: event.locationInWindow)
+        let proposed = startFrame.offsetBy(dx: mouse.x - startMouse.x, dy: mouse.y - startMouse.y)
+        window.setFrame(window.constrainFrameRect(proposed, to: window.screen), display: true)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        startMouse = nil
+        startFrame = nil
+    }
+}
+
 /// Refuses clicks that land in the transparent margin.
 ///
 /// A borderless window still swallows every click inside its frame, so without this
@@ -895,6 +923,13 @@ private struct ControlSurface: ViewModifier {
 /// underneath. It also confines window dragging to the pill, since background drags
 /// begin with a hit test.
 final class FloatingBarHostingView<Content: View>: NSHostingView<Content> {
+
+    private lazy var dragView: WindowDragView = {
+        let view = WindowDragView(frame: .zero)
+        view.setAccessibilityElement(false)
+        addSubview(view)
+        return view
+    }()
 
     /// Assigned right after construction — `NSHostingView`'s designated initialiser
     /// takes only a root view, so this cannot be passed in.
@@ -910,6 +945,18 @@ final class FloatingBarHostingView<Content: View>: NSHostingView<Content> {
         // differs, and x is unaffected either way.
         let target = geometry?.hitFrame ?? FloatingBar.pillFrame
         guard target.contains(local) else { return nil }
+
+        // SwiftUI's hosting view can consume background mouse events even when
+        // isMovableByWindowBackground is enabled. Route the ring/readout directly
+        // to a native drag view. Leave the control region to SwiftUI hit testing.
+        let dragFrame = CGRect(
+            x: target.minX, y: target.minY,
+            width: min(target.width, FloatingBar.Metrics.primaryX), height: target.height
+        )
+        if dragFrame.contains(local) {
+            dragView.frame = dragFrame
+            return dragView
+        }
         return super.hitTest(point)
     }
 }
