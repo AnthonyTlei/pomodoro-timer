@@ -6,15 +6,17 @@ import Testing
 
 @Suite("Idle companion")
 struct IdleCompanionTests {
-    @Test("Stroll rests, walks out, rests, and returns without jumping")
+    @Test("Stroll walks immediately, rests, and returns without jumping")
     func strollMotion() {
-        #expect(IdleMotion.sample(time: 5, mode: .stroll).step == 0)
-        #expect(IdleMotion.sample(time: 5, mode: .stroll).travel == 0)
+        let preview = IdleMotion.sample(time: 0.3, mode: .stroll)
+        #expect(preview.step > 0 && preview.travel > 0)
+        #expect(IdleMotion.sample(time: 2, mode: .stroll).travel == 0.5)
+        #expect(IdleMotion.sample(time: 6, mode: .stroll).step == 0)
+        #expect(IdleMotion.sample(time: 6, mode: .stroll).travel == 1)
         #expect(IdleMotion.sample(time: 14, mode: .stroll).travel == 0.5)
-        #expect(IdleMotion.sample(time: 20, mode: .stroll).travel == 1)
-        #expect(IdleMotion.sample(time: 26, mode: .stroll).travel == 0.5)
+        #expect(IdleMotion.sample(time: 20, mode: .stroll).travel == 0)
         #expect(IdleMotion.sample(time: 31, mode: .stroll).travel == 0)
-        for boundary in [12.0, 16, 24, 28, 32] {
+        for boundary in [4.0, 12, 16, 32] {
             let before = IdleMotion.sample(time: boundary - 0.001, mode: .stroll)
             let after = IdleMotion.sample(time: boundary + 0.001, mode: .stroll)
             #expect(abs(before.travel - after.travel) < 0.001)
@@ -22,7 +24,7 @@ struct IdleCompanionTests {
         }
     }
 
-    @Test("Calm never travels, and Reduce Motion disables both modes")
+    @Test("Still never travels, and Reduce Motion disables both modes")
     func quietModes() {
         for t in stride(from: 0.0, through: 64, by: 0.1) {
             let calm = IdleMotion.sample(time: t, mode: .calm)
@@ -56,12 +58,12 @@ struct IdleCompanionTests {
         }
     }
 
-    @Test("All six mini characters render in calm, blinking and walking poses",
+    @Test("All six mini characters render in still, blinking and walking poses",
           arguments: PomodoroCharacter.allCases.filter { $0 != .none })
     @MainActor
     func rendersEveryCharacter(character: PomodoroCharacter) throws {
         var images: [Data] = []
-        for t in [0.0, 8.175, 14, 26] {
+        for t in [0.0, 8.175, 2, 14] {
             let renderer = ImageRenderer(content: IdleCharacterDrawing(
                 character: character, motion: .sample(time: t, mode: .stroll)
             ))
@@ -90,7 +92,7 @@ struct IdleCompanionTests {
             ForEach(characters) { character in
                 HStack(spacing: 16) {
                     Text(character.displayName).frame(width: 110, alignment: .leading)
-                    ForEach([0.0, 8.175, 14, 26], id: \.self) { time in
+                    ForEach([0.0, 8.175, 2, 14], id: \.self) { time in
                         VStack(spacing: 0) {
                             IdleCharacterDrawing(character: character, motion: .sample(time: time, mode: .stroll))
                             RoundedRectangle(cornerRadius: 14).fill(Color.gray.opacity(0.22))
@@ -118,7 +120,7 @@ struct IdleCompanionTests {
     @MainActor
     func cachedPlayback(character: PomodoroCharacter) async throws {
         let sprites = try #require(await IdleSpriteCache.frames(for: character))
-        for t in [0.0, 8.25, 14, 26, 32, 64] {
+        for t in [0.0, 2, 8.25, 14, 20, 32, 64] {
             let image = sprites.image(time: t, motion: .sample(time: t, mode: .stroll))
             #expect(image.height == 96)
             #expect(image.width >= 73 && image.width <= 75)

@@ -24,19 +24,20 @@ public struct IdleMotion: Equatable, Sendable {
         }
         guard mode == .stroll else { return motion }
 
-        // Long rests, a four-second walk out, another rest, then a walk home.
+        // Start with a four-second walk so selecting Stroll previews it immediately.
+        // Rest at the far end, walk home, then take a longer rest before repeating.
         // Smoothstep stops translation gently; the gait also settles at each end.
         let cycle = t.truncatingRemainder(dividingBy: 32)
-        if (12..<16).contains(cycle) {
-            let p = (cycle - 12) / 4
+        if (0..<4).contains(cycle) {
+            let p = cycle / 4
             motion.travel = p * p * (3 - 2 * p)
-            motion.step = sin((cycle - 12) * .pi * 2 / 1.2) * sin(p * .pi)
-        } else if (16..<24).contains(cycle) {
+            motion.step = sin(cycle * .pi * 2 / 1.2) * sin(p * .pi)
+        } else if (4..<12).contains(cycle) {
             motion.travel = 1
-        } else if (24..<28).contains(cycle) {
-            let p = (cycle - 24) / 4
+        } else if (12..<16).contains(cycle) {
+            let p = (cycle - 12) / 4
             motion.travel = 1 - p * p * (3 - 2 * p)
-            motion.step = -sin((cycle - 24) * .pi * 2 / 1.2) * sin(p * .pi)
+            motion.step = -sin((cycle - 12) * .pi * 2 / 1.2) * sin(p * .pi)
         }
         return motion
     }

@@ -363,7 +363,7 @@ struct SettingsView: View {
             .pickerStyle(.segmented)
             .disabled(settings.character == .none || !settings.showFloatingBar)
 
-            Text("Off keeps phase-change animations only. Calm adds subtle idle movement; Stroll adds occasional short walks. Reduce Motion keeps the companion still.")
+            Text("Off keeps phase-change animations only. Still stays in place with subtle breathing and blinking; Stroll starts with a short walk, then strolls occasionally. Reduce Motion keeps the companion still.")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
