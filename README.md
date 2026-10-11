@@ -142,10 +142,20 @@ The app is not sandboxed on purpose. Controlling Music and Spotify over AppleScr
 
 1. Click the timer in the menu bar and press **Start**.
 2. Allow notifications when macOS asks.
-3. Drag the floating bar wherever you like. It remembers the spot.
+3. Drag the ring or countdown on the floating bar wherever you like. It remembers the spot.
 4. Open **Settings** from the menu to set durations, sounds, music control and your character.
 
 ## Build from source
+
+To rebuild and restart the local app without installing it:
+
+```bash
+./Scripts/build.sh --no-install --run
+```
+
+Restarting resets any active timer. Use `./Scripts/build.sh --run` to install and
+launch instead. To reopen an existing build, quit Pomodoro and run
+`open .build/Pomodoro.app`.
 
 ```bash
 swift run Pomodoro    # run without installing
