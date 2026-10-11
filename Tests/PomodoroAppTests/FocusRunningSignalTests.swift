@@ -24,7 +24,7 @@ struct FocusRunningSignalTests {
         let settings = PomodoroSettings(defaults: makeAppTestDefaults())
         configure(settings)
         let stats = StatsStore(fileURL: makeScratchStatsURL())
-        let controller = TimerController(settings: settings, stats: stats)
+        let controller = TimerController(settings: settings, stats: stats, shared: makeAppTestSharedStore())
 
         let recorder = Recorder()
         controller.onFocusRunningChanged = { recorder.events.append($0) }
@@ -137,4 +137,10 @@ func makeAppTestDefaults(function: String = #function) -> UserDefaults {
 func makeScratchStatsURL() -> URL {
     FileManager.default.temporaryDirectory
         .appendingPathComponent("pomodoro-apptests-\(UUID().uuidString).json")
+}
+
+/// Controller tests must never replace the user's live widget snapshot.
+func makeAppTestSharedStore() -> SharedStore {
+    SharedStore(directory: FileManager.default.temporaryDirectory
+        .appendingPathComponent("pomodoro-app-bridge-\(UUID().uuidString)", isDirectory: true))
 }

@@ -53,6 +53,11 @@ the original phase-change-only behavior. The mini follows the pill in compact mo
 uses the space below it when there is no room above, and yields to the full-size
 performances. Reduce Motion keeps the mini still.
 
+**Settings → Appearance** offers the original palette, one theme inspired by each
+character, and saved custom colors. Preview each phase, tune its color and surface
+tint, or choose System / Light / Dark. Themes apply across the timer, menus,
+settings, statistics and widgets. [Appearance guide and UI map](docs/THEMING.md).
+
 </td>
 <td valign="top">
 

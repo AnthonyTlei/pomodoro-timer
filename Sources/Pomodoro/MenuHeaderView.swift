@@ -8,12 +8,11 @@ import SwiftUI
 /// about where you are. This puts the dial, the cycle, and today's count above the
 /// verbs, so one click answers the question you actually opened the menu to ask.
 struct MenuHeaderView: View {
+    @Environment(\.pomodoroTheme) private var theme
 
     @Bindable var controller: TimerController
     let settings: PomodoroSettings
     let completedToday: Int
-
-    private var tint: Color { Theme.tint(for: controller.phase) }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -55,7 +54,7 @@ struct MenuHeaderView: View {
         .padding(.vertical, 12)
         .frame(width: 258)
         .background {
-            Theme.backdrop(for: controller.phase)
+            Theme.backdrop(for: controller.phase, in: theme)
                 .opacity(0.55)
                 .animation(.smooth(duration: 0.4), value: controller.phase)
         }

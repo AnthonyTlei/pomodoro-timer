@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             syncFloatingBarVisibility()
             if !settings.controlMusic { music.forgetPaused() }
         }
+        settings.onAppearanceChange = { [weak self] in self?.controller.appearanceChanged() }
 
         menuBar.onOpenSettings = { [weak self] in self?.showSettings() }
         menuBar.onOpenStats = { [weak self] in self?.showStats() }
@@ -240,11 +241,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindow == nil {
             settingsWindow = makeWindow(
                 title: "Pomodoro Settings",
-                content: SettingsView(
+                content: ThemedView(settings: settings) { SettingsView(
                     settings: settings,
                     onChange: { [weak self] in self?.settings.onChange?() },
                     onPreview: { [weak self] cue in self?.performCharacter(cue) }
-                )
+                ) }
             )
         }
         present(settingsWindow)
@@ -252,7 +253,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showStats() {
         if statsWindow == nil {
-            statsWindow = makeWindow(title: "Statistics", content: StatsView(stats: stats))
+            statsWindow = makeWindow(title: "Statistics", content: ThemedView(settings: settings) { StatsView(stats: stats) })
         }
         present(statsWindow)
     }

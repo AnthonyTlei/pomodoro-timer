@@ -163,13 +163,13 @@ final class FloatingBar: NSPanel {
         hidesOnDeactivate = false
         isExcludedFromWindowsMenu = true
 
-        let host = FloatingBarHostingView(rootView: FloatingBarView(
+        let host = FloatingBarHostingView(rootView: ThemedView(settings: settings) { FloatingBarView(
             controller: controller,
             stage: stage,
             presentation: presentation,
             geometry: geometry,
             onCollapsed: { [weak self] in self?.reconcileHover() }
-        ))
+        ) })
         host.geometry = geometry
         host.frame = NSRect(origin: .zero, size: Self.panelSize)
         contentView = host
@@ -371,6 +371,8 @@ final class BarGeometry {
 /// secondary controls only materialise on hover, because a bar that lives on top of
 /// everything you do all day earns its place by being ignorable.
 struct FloatingBarView: View {
+    @Environment(\.pomodoroTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     @Bindable var controller: TimerController
     @Bindable var stage: CharacterStageModel
@@ -390,7 +392,7 @@ struct FloatingBarView: View {
     /// setting, observed properly.
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var tint: Color { Theme.tint(for: controller.phase) }
+    private var tint: Color { Theme.tint(for: controller.phase, in: theme) }
 
     /// The raw pointer state, and the only thing left that uses it directly is the
     /// hover flourish. Everything else keys on the *form* the bar is in — see
@@ -625,7 +627,7 @@ struct FloatingBarView: View {
         // this shape has a continuous corner radius interpolating 23 -> 15, and it
         // was being rebuilt three times a frame (here, the clip, and the glass).
         .background {
-            Theme.backdrop(for: controller.phase)
+            Theme.backdrop(for: controller.phase, in: theme)
                 .opacity(controller.isRunning ? 0.85 : 0.45)
                 .animation(.smooth(duration: 0.5), value: controller.phase)
                 .animation(.smooth(duration: 0.3), value: controller.isRunning)
@@ -671,7 +673,7 @@ struct FloatingBarView: View {
                 .trim(from: 0, to: controller.progress)
                 .stroke(
                     LinearGradient(
-                        colors: [Theme.highlight(for: controller.phase), tint],
+                        colors: [Theme.highlight(for: controller.phase, in: theme), tint],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
@@ -704,7 +706,7 @@ struct FloatingBarView: View {
 
             Image(systemName: Theme.symbol(for: controller.phase))
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(tint)
+                .foregroundStyle(Theme.legibleTint(for: controller.phase, in: theme, scheme: colorScheme))
                 .contentTransition(.symbolEffect(.replace))
                 // A slow breath while running — opacity only. An earlier version
                 // pulsed a coloured shadow, which at this size read as a smudge.
@@ -802,7 +804,7 @@ struct FloatingBarView: View {
             Text(controller.isRunning ? controller.phase.title : "Paused")
                 .font(.system(size: 8, weight: .bold))
                 .tracking(0.6)
-                .foregroundStyle(controller.isRunning ? tint : .secondary)
+                .foregroundStyle(controller.isRunning ? Theme.legibleTint(for: controller.phase, in: theme, scheme: colorScheme) : Color.secondary)
                 .contentTransition(.opacity)
         }
         .frame(width: 74, alignment: .leading)
@@ -883,7 +885,7 @@ struct FloatingBarView: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: size * 0.38, weight: .bold))
-                .foregroundStyle(tint == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white))
+                .foregroundStyle(tint == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.ink(for: controller.phase, in: theme)))
                 .contentTransition(.symbolEffect(.replace))
                 .modifier(ControlSurface(tint: tint, size: size))
         }

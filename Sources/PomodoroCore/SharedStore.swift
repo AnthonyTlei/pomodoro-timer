@@ -21,6 +21,8 @@ public struct TimerSnapshot: Codable, Sendable, Equatable {
     /// Focus sessions per long break, i.e. how many pips to draw.
     public var cycleLength: Int
     public var updatedAt: Date
+    /// Optional so snapshots from older app versions continue to decode.
+    public var theme: ThemeConfiguration?
 
     public init(
         phase: Phase = .focus,
@@ -31,7 +33,8 @@ public struct TimerSnapshot: Codable, Sendable, Equatable {
         completedToday: Int = 0,
         cyclePosition: Int = 0,
         cycleLength: Int = 4,
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        theme: ThemeConfiguration? = nil
     ) {
         self.phase = phase
         self.isRunning = isRunning
@@ -42,6 +45,7 @@ public struct TimerSnapshot: Codable, Sendable, Equatable {
         self.cyclePosition = cyclePosition
         self.cycleLength = cycleLength
         self.updatedAt = updatedAt
+        self.theme = theme
     }
 
     /// Seconds left at `date`, derived rather than stored so a stale snapshot still
@@ -75,6 +79,26 @@ public struct TimerSnapshot: Codable, Sendable, Equatable {
     }
 
     public var progress: Double { progress(at: Date()) }
+
+    private enum CodingKeys: String, CodingKey {
+        case phase, isRunning, deadline, remainingSeconds, totalSeconds, completedToday
+        case cyclePosition, cycleLength, updatedAt, theme
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        phase = try container.decode(Phase.self, forKey: .phase)
+        isRunning = try container.decode(Bool.self, forKey: .isRunning)
+        deadline = try container.decodeIfPresent(Date.self, forKey: .deadline)
+        remainingSeconds = try container.decode(Int.self, forKey: .remainingSeconds)
+        totalSeconds = try container.decode(Int.self, forKey: .totalSeconds)
+        completedToday = try container.decode(Int.self, forKey: .completedToday)
+        cyclePosition = try container.decode(Int.self, forKey: .cyclePosition)
+        cycleLength = try container.decode(Int.self, forKey: .cycleLength)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        // Cosmetic corruption must not discard an otherwise valid running timer.
+        theme = try? container.decode(ThemeConfiguration.self, forKey: .theme)
+    }
 }
 
 /// A control the widget sends back to the app.
@@ -111,8 +135,10 @@ public struct SharedStore: Sendable {
     public static let appGroupID = "group.com.yorgotabet.pomodoro"
 
     private let directory: URL
+    private let usesLocalDirectory: Bool
 
     public init(appGroupID: String = SharedStore.appGroupID) {
+        usesLocalDirectory = false
         if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
             directory = container
         } else {
@@ -123,9 +149,17 @@ public struct SharedStore: Sendable {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
+    /// Explicit storage for local tools and isolated file-I/O tests. Production
+    /// app/widget callers retain the default App Group lookup and fallback.
+    public init(directory: URL) {
+        self.directory = directory
+        usesLocalDirectory = true
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+
     /// `false` when the App Group isn't reachable, meaning the widget can't see us.
     public var isShared: Bool {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupID) != nil
+        !usesLocalDirectory && FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupID) != nil
     }
 
     private var snapshotURL: URL { directory.appendingPathComponent("snapshot.json") }

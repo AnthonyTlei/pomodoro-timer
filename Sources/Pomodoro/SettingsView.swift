@@ -6,6 +6,8 @@ import SwiftUI
 /// is no apply/cancel state to keep in sync — and no way to end up looking at
 /// settings the app isn't actually using.
 struct SettingsView: View {
+    @Environment(\.pomodoroTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     @Bindable var settings: PomodoroSettings
     let onChange: () -> Void
@@ -18,6 +20,7 @@ struct SettingsView: View {
         case music = "Music"
         case alerts = "Alerts"
         case character = "Character"
+        case appearance = "Appearance"
 
         var id: String { rawValue }
 
@@ -27,6 +30,7 @@ struct SettingsView: View {
             case .music: "music.note"
             case .alerts: "bell.badge"
             case .character: "figure.fencing"
+            case .appearance: "paintpalette"
             }
         }
     }
@@ -38,14 +42,13 @@ struct SettingsView: View {
             Divider().opacity(0.4)
 
             Group {
-                switch section {
-                case .timer: timerSection
-                case .music: musicSection
-                case .alerts: alertsSection
-                case .character: characterSection
+                if section == .appearance {
+                    ScrollView { sectionContent.padding(20) }
+                        .frame(height: 490)
+                } else {
+                    sectionContent.padding(20)
                 }
             }
-            .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
             // Sections cross-fade in place rather than sliding, so the window
             // never appears to jump when you switch tabs.
@@ -55,7 +58,18 @@ struct SettingsView: View {
         .frame(width: 440)
         .fixedSize(horizontal: false, vertical: true)
         .background {
-            Theme.backdrop(for: .focus).opacity(0.45).ignoresSafeArea()
+            Theme.backdrop(for: .focus, in: theme).opacity(0.45).ignoresSafeArea()
+        }
+    }
+
+    @ViewBuilder
+    private var sectionContent: some View {
+        switch section {
+        case .timer: timerSection
+        case .music: musicSection
+        case .alerts: alertsSection
+        case .character: characterSection
+        case .appearance: AppearanceSettingsView(settings: settings)
         }
     }
 
@@ -78,8 +92,8 @@ struct SettingsView: View {
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Theme.highlight(for: segment.phase),
-                                        Theme.tint(for: segment.phase),
+                                        Theme.highlight(for: segment.phase, in: theme),
+                                        Theme.tint(for: segment.phase, in: theme),
                                     ],
                                     startPoint: .top,
                                     endPoint: .bottom
@@ -92,7 +106,7 @@ struct SettingsView: View {
                                 if width >= 24 {
                                     Text("\(segment.minutes)")
                                         .font(.system(size: 9, weight: .bold))
-                                        .foregroundStyle(.white.opacity(0.95))
+                                        .foregroundStyle(Theme.gradientInk(for: segment.phase, in: theme))
                                 }
                             }
                     }
@@ -305,7 +319,7 @@ struct SettingsView: View {
     private func chimeRow(_ title: String, selection: Binding<String>, phase: Phase) -> some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(Theme.tint(for: phase))
+                .fill(Theme.tint(for: phase, in: theme))
                 .frame(width: 7, height: 7)
 
             Text(title)
@@ -326,7 +340,7 @@ struct SettingsView: View {
             } label: {
                 Image(systemName: "play.circle.fill")
                     .font(.system(size: 15))
-                    .foregroundStyle(Theme.tint(for: phase))
+                    .foregroundStyle(Theme.legibleTint(for: phase, in: theme, scheme: colorScheme))
             }
             .buttonStyle(.plain)
             .help("Preview")
@@ -410,7 +424,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Circle()
-                    .fill(Theme.tint(for: phase))
+                    .fill(Theme.tint(for: phase, in: theme))
                     .frame(width: 7, height: 7)
                 Text(title)
                     .font(.system(size: 12))
@@ -442,8 +456,8 @@ struct SettingsView: View {
             .buttonStyle(.borderedProminent)
             .buttonBorderShape(.capsule)
             .controlSize(.small)
-            .tint(isSelected ? Theme.tint(for: phase) : Color.secondary.opacity(0.22))
-            .foregroundStyle(isSelected ? Color.white : .secondary)
+            .tint(isSelected ? Theme.tint(for: phase, in: theme) : Color.secondary.opacity(0.22))
+            .foregroundStyle(isSelected ? Theme.ink(for: phase, in: theme) : Color.secondary)
             .font(.system(size: 10, weight: .semibold))
             .monospacedDigit()
     }
@@ -452,7 +466,7 @@ struct SettingsView: View {
         HStack(spacing: 9) {
             Image(systemName: symbol)
                 .font(.system(size: 11))
-                .foregroundStyle(Theme.tint(for: .focus))
+                .foregroundStyle(Theme.legibleTint(for: .focus, in: theme, scheme: colorScheme))
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 0) {
                 Text(name).font(.system(size: 11, weight: .medium))

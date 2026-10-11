@@ -27,6 +27,7 @@ public final class PomodoroSettings {
         case launchAtLogin
         case character
         case characterIdleMode
+        case themeConfiguration
         case floatingBarX
         case floatingBarY
     }
@@ -35,6 +36,8 @@ public final class PomodoroSettings {
 
     /// Called after any stored value changes, so AppKit views can redraw.
     @ObservationIgnored public var onChange: (() -> Void)?
+    /// Appearance updates must never reset a paused countdown or touch music.
+    @ObservationIgnored public var onAppearanceChange: (() -> Void)?
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -193,6 +196,25 @@ public final class PomodoroSettings {
                 defaults.set(newValue.rawValue, forKey: Key.characterIdleMode.rawValue)
             }
             onChange?()
+        }
+    }
+
+    // MARK: - Appearance
+
+    public var theme: ThemeConfiguration {
+        get {
+            access(keyPath: \.theme)
+            guard let data = defaults.data(forKey: Key.themeConfiguration.rawValue),
+                  let value = try? JSONDecoder().decode(ThemeConfiguration.self, from: data)
+            else { return ThemeConfiguration() }
+            return value
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            withMutation(keyPath: \.theme) {
+                defaults.set(data, forKey: Key.themeConfiguration.rawValue)
+            }
+            onAppearanceChange?()
         }
     }
 
