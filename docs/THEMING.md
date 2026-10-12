@@ -79,8 +79,10 @@ Original / System / full tint and clears the saved custom palette.
   labels adjust hue luminance for light/dark neutral surfaces. Custom gradients
   preserve readable ink at both stops. Decorative progress colors retain the exact
   user's choice. This is not a claim about every wallpaper behind translucent glass.
-- No panel geometry, drag handling, compact policy, idle playback, original character
-  performances, build-script behavior or new macOS permissions are changed.
+- Appearance edits preserve the timer, compact policy and original character
+  performances. Layout and input behavior are described in
+  [the floating bar guide](FLOATING-BAR.md); companion rendering is described in
+  [the kit guide](COMPANIONS.md). No additional macOS permissions are requested.
 
 The nearest sRGB byte represents the original theme's decimal color components;
 the difference is below one RGB step.

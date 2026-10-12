@@ -54,4 +54,6 @@ orientation. Full-size performance art and timelines are unchanged.
   countdown preservation and all six characters. Run `swift test` for all checks.
 
 Build and relaunch locally with `./Scripts/build.sh --no-install --run`. The build
-script, signing policy, widget geometry and original animation resources are unchanged.
+workflow retains the default install behavior and signs the bundled companion
+resources with the app. Widget geometry and original animation resources are
+unchanged by the layout feature.
