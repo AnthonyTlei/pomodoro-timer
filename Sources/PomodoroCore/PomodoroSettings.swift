@@ -24,6 +24,7 @@ public final class PomodoroSettings {
         case resumeMusicOnFocusStart
         case showFloatingBar
         case compactFloatingBar
+        case pillOrientation
         case launchAtLogin
         case character
         case characterIdleMode
@@ -42,6 +43,8 @@ public final class PomodoroSettings {
     @ObservationIgnored public var onAppearanceChange: (() -> Void)?
     /// Companion controls only affect decoration, including while paused.
     @ObservationIgnored public var onCompanionChange: (() -> Void)?
+    /// Layout and visibility never alter the countdown or music state.
+    @ObservationIgnored public var onFloatingBarChange: (() -> Void)?
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -63,6 +66,7 @@ public final class PomodoroSettings {
             Key.resumeMusicOnFocusStart.rawValue: true,
             Key.showFloatingBar.rawValue: true,
             Key.compactFloatingBar.rawValue: false,
+            Key.pillOrientation.rawValue: PillOrientation.horizontal.rawValue,
             Key.launchAtLogin.rawValue: false,
             Key.character.rawValue: PomodoroCharacter.none.rawValue,
             Key.characterIdleMode.rawValue: CharacterIdleMode.off.rawValue,
@@ -153,15 +157,38 @@ public final class PomodoroSettings {
 
     public var showFloatingBar: Bool {
         get { access(keyPath: \.showFloatingBar); return defaults.bool(forKey: Key.showFloatingBar.rawValue) }
-        set { write(.showFloatingBar, newValue, \.showFloatingBar) }
+        set {
+            withMutation(keyPath: \.showFloatingBar) {
+                defaults.set(newValue, forKey: Key.showFloatingBar.rawValue)
+            }
+            (onFloatingBarChange ?? onChange)?()
+        }
     }
 
-    /// Shrink the bar to a bare progress ring while the timer runs.
+    /// Shorten the bar after play/pause while the timer runs.
     ///
     /// Opt-in: an existing install keeps the full pill until it is asked for.
     public var compactFloatingBar: Bool {
         get { access(keyPath: \.compactFloatingBar); return defaults.bool(forKey: Key.compactFloatingBar.rawValue) }
-        set { write(.compactFloatingBar, newValue, \.compactFloatingBar) }
+        set {
+            withMutation(keyPath: \.compactFloatingBar) {
+                defaults.set(newValue, forKey: Key.compactFloatingBar.rawValue)
+            }
+            (onFloatingBarChange ?? onChange)?()
+        }
+    }
+
+    public var pillOrientation: PillOrientation {
+        get {
+            access(keyPath: \.pillOrientation)
+            return PillOrientation(rawValue: defaults.string(forKey: Key.pillOrientation.rawValue) ?? "") ?? .horizontal
+        }
+        set {
+            withMutation(keyPath: \.pillOrientation) {
+                defaults.set(newValue.rawValue, forKey: Key.pillOrientation.rawValue)
+            }
+            (onFloatingBarChange ?? onChange)?()
+        }
     }
 
     /// What the user asked for, which is not the same as what the system reports.

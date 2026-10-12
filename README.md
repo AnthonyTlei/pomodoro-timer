@@ -38,6 +38,13 @@ Focus, short break and long break, with the long break every *n* pomodoros. Ever
 ### 🫧&nbsp; The floating bar
 A draggable glass pill with a progress ring, the countdown and the phase. Play and pause are always there, with reset and skip on hover. It can shrink while a timer runs and opens again when you come near it.
 
+Choose **Horizontal / Vertical** in **Settings → Timer → Orientation**. Both use
+the same size and glass treatment, with upright controls and companion artwork.
+Right-click the pill (or secondary-click with two fingers on a trackpad) for
+**Settings…**, **Switch to Vertical / Horizontal**, and **Hide Floating Bar**.
+Show it again from the menu bar's **Show Floating Bar** item.
+[Floating bar behavior and implementation](docs/FLOATING-BAR.md).
+
 </td>
 </tr>
 <tr>

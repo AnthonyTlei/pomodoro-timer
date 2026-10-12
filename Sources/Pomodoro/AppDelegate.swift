@@ -63,6 +63,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             floatingBar?.stage.companionEdge = settings.characterCompanionEdge
             floatingBar?.stage.companionPosition = settings.characterCompanionPosition
         }
+        settings.onFloatingBarChange = { [weak self] in
+            guard let self else { return }
+            floatingBar?.setOrientation(settings.pillOrientation)
+            floatingBar?.presentation.setCompactEnabled(settings.compactFloatingBar)
+            syncFloatingBarVisibility()
+        }
 
         menuBar.onOpenSettings = { [weak self] in self?.showSettings() }
         menuBar.onOpenStats = { [weak self] in self?.showStats() }
@@ -211,6 +217,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settings.showFloatingBar {
             if floatingBar == nil {
                 floatingBar = FloatingBar(controller: controller, settings: settings)
+                floatingBar?.onOpenSettings = { [weak self] in self?.showSettings() }
                 // The stage must know the chosen character before any cue fires —
                 // relying on `perform` to set it left it `.none` at rest.
                 floatingBar?.stage.character = settings.character

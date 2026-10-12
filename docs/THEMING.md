@@ -8,7 +8,8 @@ installs. No assets, services, packages, or network requests are needed.
 
 | Surface | Theme-controlled pieces | Adaptive pieces |
 | --- | --- | --- |
-| Floating timer, expanded and compact | Phase progress gradient, phase glyph and caption, primary Start/Pause button and shadow, glass color wash | Countdown, muted controls, ring track, control wells and borders |
+| Floating timer, horizontal/vertical, expanded/compact | Phase progress gradient, phase glyph and caption, primary Start/Pause button and shadow, glass color wash | Countdown, muted controls, ring track, control wells and borders |
+| Floating bar context menu | Follows the pill's resolved System / Light / Dark appearance | Native menu rows, selection highlight and template icons |
 | Menu header | Dial, phase label, bloom, cycle pips, background wash | Countdown, paused label, daily count |
 | Settings | Cycle preview, duration dots and selected presets, chime preview icons, music icons, accent controls, backdrop | Body text, captions, dividers, native field and control surfaces |
 | Appearance tab | Live timer preview, palette swatches and selection, native accent controls | Card borders, labels, descriptions |

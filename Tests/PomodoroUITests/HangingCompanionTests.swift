@@ -38,11 +38,15 @@ struct HangingCompanionTests {
     func layout(character: PomodoroCharacter) throws {
         let kit = try #require(CompanionKit.load(for: character))
         let screen = CGRect(x: -1440, y: -900, width: 1440, height: 900)
-        for width in [236.0, 172] {
+        for orientation in PillOrientation.allCases {
+        for length in [236.0, 172] {
+            let size = PillLayout(orientation: orientation).size(length: length)
+            let width = size.width
+            let height = size.height
             for origin in [CGPoint(x: -900, y: -500), CGPoint(x: -1439, y: -899),
-                           CGPoint(x: -width - 1, y: -899), CGPoint(x: -1439, y: -47),
-                           CGPoint(x: -width - 1, y: -47)] {
-                let pill = CGRect(origin: origin, size: CGSize(width: width, height: 46))
+                           CGPoint(x: -width - 1, y: -899), CGPoint(x: -1439, y: -height - 1),
+                           CGPoint(x: -width - 1, y: -height - 1)] {
+                let pill = CGRect(origin: origin, size: size)
                 for edge in StageEdge.allCases {
                     for position in [0.0, 0.5, 1] {
                         let placed = CompanionDock.resolve(preferred: edge, position: position,
@@ -51,11 +55,12 @@ struct HangingCompanionTests {
                         let m = kit.metrics(for: placed.edge)
                         #expect(abs(placed.frame.minX + m.grip.x * m.size.width - placed.contact.x) < 0.001)
                         #expect(abs(placed.frame.minY + m.grip.y * m.size.height - placed.contact.y) < 0.001)
-                        if placed.edge == .top { #expect(placed.contact.y == pill.minY) }
-                        if placed.edge == .bottom { #expect(placed.contact.y == pill.maxY) }
+                        if placed.edge == .top { #expect(placed.contact.y == pill.minY + (orientation == .vertical ? 5 : 0)) }
+                        if placed.edge == .bottom { #expect(placed.contact.y == pill.maxY - (orientation == .vertical ? 5 : 0)) }
                     }
                 }
             }
+        }
         }
     }
 
@@ -80,11 +85,12 @@ struct HangingCompanionTests {
     }
 
     @Test("Every Lively companion relocates immediately and cancels unfinished work",
-          arguments: PomodoroCharacter.allCases.filter { $0 != .none })
-    func lively(character: PomodoroCharacter) async throws {
+          arguments: PomodoroCharacter.allCases.filter { $0 != .none }, PillOrientation.allCases)
+    func lively(character: PomodoroCharacter, orientation: PillOrientation) async throws {
         let kit = try #require(CompanionKit.load(for: character))
-        let view = HangingSpriteView(frame: CGRect(x: 0, y: 0, width: 400, height: 200))
-        let pill = CGRect(x: 82, y: 60, width: 236, height: 46)
+        let layout = PillLayout(orientation: orientation)
+        let view = HangingSpriteView(frame: CGRect(origin: .zero, size: layout.panelSize))
+        let pill = layout.pillFrame
         view.configure(kit: kit, mode: .stroll, edge: .top, position: 0.5,
                        pill: pill, screen: view.bounds, reduceMotion: false)
         try await Task.sleep(for: .seconds(1.6))

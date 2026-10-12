@@ -4,6 +4,31 @@ import Testing
 
 @Suite("Settings")
 struct SettingsTests {
+    @Test("Orientation defaults to horizontal, persists, and tolerates unknown values")
+    func pillOrientation() {
+        let defaults = makeDefaults()
+        let settings = PomodoroSettings(defaults: defaults)
+        #expect(settings.pillOrientation == .horizontal)
+        settings.pillOrientation = .vertical
+        #expect(PomodoroSettings(defaults: defaults).pillOrientation == .vertical)
+        defaults.set("future-layout", forKey: PomodoroSettings.Key.pillOrientation.rawValue)
+        #expect(settings.pillOrientation == .horizontal)
+    }
+
+    @Test("Floating bar preferences use only the presentation callback, with legacy fallback")
+    func floatingCallbacks() {
+        let settings = PomodoroSettings(defaults: makeDefaults())
+        var general = 0, presentation = 0
+        settings.onChange = { general += 1 }
+        settings.onFloatingBarChange = { presentation += 1 }
+        settings.pillOrientation = .vertical
+        settings.compactFloatingBar = true
+        settings.showFloatingBar = false
+        #expect(presentation == 3 && general == 0)
+        settings.onFloatingBarChange = nil
+        settings.pillOrientation = .horizontal
+        #expect(general == 1)
+    }
 
     @Test("Defaults match the classic 25/5/15/4 pomodoro")
     func defaults() {

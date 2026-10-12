@@ -88,4 +88,8 @@ final class CharacterStageModel {
             self.isPerforming = false
         }
     }
+
+    /// Await the active performance's actual completion rather than racing the
+    /// main actor with a guessed wall-clock sleep in lifecycle verification.
+    func settlePerformance() async { await clearTask?.value }
 }

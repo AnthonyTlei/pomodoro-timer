@@ -60,8 +60,10 @@ mascot eyes stay delighted while the human occupant blinks.
 ## Shared behavior
 
 Idle keeps the preferred edge and position with breathing, blinking, and tiny
-sway around the grip. The top/bottom position slider moves the contact along the
-flat rim. Bounds correction first slides that contact, then tries the opposite
+sway around the grip. The position slider follows the long flat rim: top/bottom
+in horizontal orientation, left/right in vertical orientation. Short ends center
+the character on the curved cap. The Settings preview follows the selected bar
+orientation, and all six kits stay upright. Bounds correction first slides that contact, then tries the opposite
 edge, then the remaining edges. It never clamps the body independently of its
 grip. Negative display coordinates and compact widths are supported.
 

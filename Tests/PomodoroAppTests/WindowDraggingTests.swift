@@ -71,23 +71,27 @@ struct WindowDraggingTests {
     }
 
     @Test("Every mounted hanging companion preserves native drag routing",
-          arguments: PomodoroCharacter.allCases.filter { $0 != .none })
-    func hangingCompanionDrag(character: PomodoroCharacter) throws {
+          arguments: PomodoroCharacter.allCases.filter { $0 != .none }, PillOrientation.allCases)
+    func hangingCompanionDrag(character: PomodoroCharacter, orientation: PillOrientation) throws {
         _ = NSApplication.shared
         let screen = try #require(NSScreen.main)
-        let pill = FloatingBar.pillFrame
+        let layout = PillLayout(orientation: orientation)
+        let pill = layout.pillFrame
         let host = FloatingBarHostingView(rootView: ZStack {
             Color.clear
             HangingCompanion(character: character, mode: .calm, edge: .top, position: 0.5,
                              pill: pill, screen: .null)
         })
         host.geometry = BarGeometry()
+        host.geometry?.layout = layout
+        host.geometry?.hitFrame = pill
         let window = NSWindow(contentRect: CGRect(x: screen.visibleFrame.midX - 228,
-            y: screen.visibleFrame.midY - 133, width: FloatingBar.panelSize.width,
-            height: FloatingBar.panelSize.height), styleMask: [.borderless], backing: .buffered, defer: false)
+            y: screen.visibleFrame.midY - 133, width: layout.panelSize.width,
+            height: layout.panelSize.height), styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = host
         host.layoutSubtreeIfNeeded()
-        let contact = CGPoint(x: pill.minX + 65, y: pill.midY)
+        let nativeDrag = layout.nativeRect(layout.dragFrame)
+        let contact = CGPoint(x: nativeDrag.midX, y: nativeDrag.midY)
         let drag = try #require(host.hitTest(contact) as? WindowDragView)
         let origin = window.frame.origin
         drag.mouseDown(with: try event(.leftMouseDown, at: contact, window: window))
@@ -95,7 +99,7 @@ struct WindowDraggingTests {
             at: CGPoint(x: contact.x + 25, y: contact.y + 20), window: window))
         #expect(window.frame.minX == origin.x + 25)
         #expect(window.frame.minY == origin.y + 20)
-        #expect(host.hitTest(CGPoint(x: pill.midX, y: pill.minY - 20)) == nil)
+        #expect(host.hitTest(CGPoint(x: 10, y: 10)) == nil)
         drag.mouseUp(with: try event(.leftMouseUp, at: contact, window: window))
     }
 }

@@ -42,7 +42,7 @@ struct SettingsView: View {
             Divider().opacity(0.4)
 
             Group {
-                if section == .appearance {
+                if section == .appearance || section == .character {
                     ScrollView { sectionContent.padding(20) }
                         .frame(height: 490)
                 } else {
@@ -212,10 +212,18 @@ struct SettingsView: View {
             Toggle("Start next focus automatically", isOn: $settings.autoStartFocus)
             Toggle("Show floating bar", isOn: $settings.showFloatingBar)
 
-            Toggle("Shrink it to a ring while running", isOn: $settings.compactFloatingBar)
+            Picker("Orientation", selection: $settings.pillOrientation) {
+                ForEach(PillOrientation.allCases, id: \.self) { orientation in
+                    Text(orientation.title).tag(orientation)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(!settings.showFloatingBar)
+
+            Toggle("Compact while running", isOn: $settings.compactFloatingBar)
                 .disabled(!settings.showFloatingBar)
             if settings.compactFloatingBar {
-                caption("While the timer runs the bar becomes a bare progress ring. Point at it to bring the controls back — and it opens on its own when a phase ends.")
+                caption("Keep the countdown and play/pause visible; reveal skip and reset on hover. The bar also opens when a phase ends.")
             }
 
             Toggle("Launch at login", isOn: $settings.launchAtLogin)
@@ -236,8 +244,6 @@ struct SettingsView: View {
         .onChange(of: settings.focusMinutes) { _, _ in onChange() }
         .onChange(of: settings.shortBreakMinutes) { _, _ in onChange() }
         .onChange(of: settings.longBreakMinutes) { _, _ in onChange() }
-        .onChange(of: settings.showFloatingBar) { _, _ in onChange() }
-        .onChange(of: settings.compactFloatingBar) { _, _ in onChange() }
     }
 
     private var musicSection: some View {

@@ -112,11 +112,25 @@ public enum CompanionDock {
                 let low = max(start, bounds.minX + art.grip.x * art.size.width)
                 let high = min(end, bounds.maxX - (1 - art.grip.x) * art.size.width)
                 let x = low <= high ? min(high, max(low, wanted)) : wanted
-                contact = CGPoint(x: x, y: edge == .top ? pill.minY : pill.maxY)
+                // On a vertical pill the short ends are curved: tuck the grip
+                // slightly onto the cap rather than suspending the hands above it.
+                let capInset: CGFloat = pill.height > pill.width ? 5 : 0
+                contact = CGPoint(x: x, y: edge == .top ? pill.minY + capInset : pill.maxY - capInset)
             case .leading, .trailing:
-                // The hands and shoe follow the capsule's rounded shoulder.
-                contact = CGPoint(x: edge == .leading ? pill.minX + 9 : pill.maxX - 9,
-                                  y: pill.minY + 3 + fraction * 3)
+                if pill.height > pill.width {
+                    let padding = min(pill.height / 2, pill.width / 2 + art.size.height / 2)
+                    let start = pill.minY + padding
+                    let end = pill.maxY - padding
+                    let wanted = start + (end - start) * fraction
+                    let low = max(start, bounds.minY + art.grip.y * art.size.height)
+                    let high = min(end, bounds.maxY - (1 - art.grip.y) * art.size.height)
+                    let y = low <= high ? min(high, max(low, wanted)) : wanted
+                    contact = CGPoint(x: edge == .leading ? pill.minX + 2 : pill.maxX - 2, y: y)
+                } else {
+                    // The hands and shoe follow the horizontal capsule's shoulder.
+                    contact = CGPoint(x: edge == .leading ? pill.minX + 9 : pill.maxX - 9,
+                                      y: pill.minY + 3 + fraction * 3)
+                }
             }
             return Placement(edge: edge,
                 frame: CGRect(x: contact.x - art.grip.x * art.size.width,
@@ -215,7 +229,8 @@ final class HangingSpriteView: NSView {
         let path = CGMutablePath()
         path.addRect(bounds)
         let inner = pill.insetBy(dx: 2, dy: 2)
-        path.addRoundedRect(in: inner, cornerWidth: inner.height / 2, cornerHeight: inner.height / 2)
+        let radius = min(inner.width, inner.height) / 2
+        path.addRoundedRect(in: inner, cornerWidth: radius, cornerHeight: radius)
         CATransaction.begin(); CATransaction.setDisableActions(true)
         occlusion.frame = bounds; occlusion.path = path
         CATransaction.commit()

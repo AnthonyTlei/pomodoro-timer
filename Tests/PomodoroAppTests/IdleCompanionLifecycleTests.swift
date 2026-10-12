@@ -31,7 +31,7 @@ struct IdleCompanionLifecycleTests {
         stage.perform(.breakStart, character: character, edge: .top)
         #expect(stage.isPerforming)
         #expect(!stage.showsCompanion)
-        try await Task.sleep(for: .seconds(0.6))
+        await stage.settlePerformance()
         #expect(!stage.isPerforming)
         #expect(stage.showsCompanion)
         #expect(stage.pillScale == 1)
@@ -48,7 +48,7 @@ struct IdleCompanionLifecycleTests {
         try await Task.sleep(for: .seconds(0.5))
         #expect(stage.isPerforming)
         #expect(!stage.showsCompanion)
-        try await Task.sleep(for: .seconds(0.4))
+        await stage.settlePerformance()
         #expect(stage.showsCompanion)
     }
 }
