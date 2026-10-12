@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.onAppearanceChange = { [weak self] in self?.controller.appearanceChanged() }
         settings.onCompanionChange = { [weak self] in
             guard let self else { return }
+            floatingBar?.stage.character = settings.character
             floatingBar?.stage.idleMode = settings.characterIdleMode
             floatingBar?.stage.companionEdge = settings.characterCompanionEdge
             floatingBar?.stage.companionPosition = settings.characterCompanionPosition

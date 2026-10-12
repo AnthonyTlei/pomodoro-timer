@@ -187,7 +187,7 @@ public final class PomodoroSettings {
             withMutation(keyPath: \.character) {
                 defaults.set(newValue.rawValue, forKey: Key.character.rawValue)
             }
-            onChange?()
+            (onCompanionChange ?? onChange)?()
         }
     }
 

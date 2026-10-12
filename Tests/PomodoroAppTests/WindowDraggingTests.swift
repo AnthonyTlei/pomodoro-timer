@@ -70,14 +70,15 @@ struct WindowDraggingTests {
                                      y: pill.midY)) is WindowDragView))
     }
 
-    @Test("A mounted hanging companion preserves native drag routing")
-    func hangingCompanionDrag() throws {
+    @Test("Every mounted hanging companion preserves native drag routing",
+          arguments: PomodoroCharacter.allCases.filter { $0 != .none })
+    func hangingCompanionDrag(character: PomodoroCharacter) throws {
         _ = NSApplication.shared
         let screen = try #require(NSScreen.main)
         let pill = FloatingBar.pillFrame
         let host = FloatingBarHostingView(rootView: ZStack {
             Color.clear
-            HangingCompanion(character: .hancock, mode: .calm, edge: .top, position: 0.5,
+            HangingCompanion(character: character, mode: .calm, edge: .top, position: 0.5,
                              pill: pill, screen: .null)
         })
         host.geometry = BarGeometry()

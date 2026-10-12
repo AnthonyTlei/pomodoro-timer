@@ -1,7 +1,8 @@
 # Hanging companion kits
 
-Boa is the first hanging companion. The other five characters retain their
-existing standing/walking companion until their hanging artwork is approved.
+All six existing characters have hanging kits: Samurai, Ninja, Rabbit Suit Guy,
+Power, The General, and Boa Hancock. Each has its own bottom hang, top peek,
+side climb, and matching resting-expression frames. Right climbs are mirrored.
 Off remains the default, and the original phase-change rigs and timelines are
 unchanged. Persisted `calm` / `stroll` values still display as Idle / Lively.
 
@@ -41,13 +42,20 @@ contact line. The renderer occludes the interior of the pill while leaving a
 2-point lip for grips. This mask also works during relocation and keeps timer
 controls clear.
 
-Mode and placement edits use the presentation-only `onCompanionChange` callback;
+Character, mode, and placement edits use the presentation-only `onCompanionChange` callback;
 they do not call the timer's duration-settings callback or reset a paused session.
 
-Balance **visible alpha area**, not just frame dimensions. Boa's three poses
-have similar visible area (within 15%), while her top peek has a larger face
-and a shorter frame than her full-body poses. The artwork test checks that
-balance, image transparency, and that the blink images differ.
+Balance **visible alpha area**, not just frame dimensions. Each character's
+three poses have similar visible area (within 15%). The roster targets about
+1,130 square logical points of alpha-weighted artwork per pose. Top peeks have
+larger heads and shorter frames than full-body hangs. Height includes tall ears,
+horns, and helmet crests; do not force those shapes into identical boxes. The
+artwork test checks balance within each kit and across the roster, transparency,
+and that the resting-expression frames differ.
+
+The General keeps his opaque aviators on: his alternate resting frame changes
+the lens glint slightly rather than exposing eyes for a blink. Rabbit's sewn
+mascot eyes stay delighted while the human occupant blinks.
 
 ## Shared behavior
 
@@ -83,11 +91,18 @@ earrings, red/gold gown and blue/ivory cape; crisp illustration; no pill, labels
 background, or extra objects. Crop rectangles, optical sizes, and grip anchors
 are authored in the adjacent manifest. Full-size performance artwork is separate.
 
+The other five atlases were created with the same built-in tool using each
+character's original performance artwork as the identity/costume reference and
+Boa's atlas as the pose/style reference. Their complete production prompts are
+saved in [`companion-prompts`](companion-prompts). Atlas files and per-character
+crop/grip/scale manifests are bundled in `Sources/PomodoroUI/Resources/Companions`.
+
 ## Verification
 
-`swift test --filter HangingCompanion` checks bundled artwork, optical balance,
-edge fallback/contact, immediate Lively relocation, cancellation, Reduce Motion,
-and native click passthrough. Existing suites cover dragging, compact geometry,
+`swift test --filter HangingCompanion` checks all six kits, optical balance,
+edge fallback/contact, immediate Lively relocation, cancellation, character
+replacement during a tuck, Reduce Motion, and native click passthrough. Mounted
+native drag routing is also checked for all six. Existing suites cover compact geometry,
 performance yielding, and appearance propagation. `swift test` runs them all.
 
 For a temporary native art review, run:
@@ -96,7 +111,8 @@ For a temporary native art review, run:
 POMODORO_HANGING_REVIEW=1 swift test --filter HangingCompanionTests.nativeReview
 ```
 
-The isolated review window closes after 110 seconds and uses no production
+The isolated review window has roster buttons, Idle/Lively and Light/Dark controls, closes
+after ten minutes (or with its close button), and uses no production
 preferences. Production review remains necessary: an art review window does not
 prove the real floating panel's behavior.
 

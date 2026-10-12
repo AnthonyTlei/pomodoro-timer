@@ -8,9 +8,10 @@ import Testing
 @Suite("Hanging companion", .serialized)
 @MainActor
 struct HangingCompanionTests {
-    @Test("Bundled Boa kit has matched optical sizes, transparency, and blink frames")
-    func artwork() throws {
-        let kit = try #require(CompanionKit.load(for: .hancock))
+    @Test("Every bundled kit has matched optical sizes, transparency, and resting frames",
+          arguments: PomodoroCharacter.allCases.filter { $0 != .none })
+    func artwork(character: PomodoroCharacter) throws {
+        let kit = try #require(CompanionKit.load(for: character))
         var areas: [Double] = []
         for edge in [StageEdge.top, .bottom, .leading] {
             let art = kit.artwork(for: edge)
@@ -27,13 +28,15 @@ struct HangingCompanionTests {
             #expect(bitmap.colorAt(x: 0, y: 0)!.alphaComponent < 0.05)
             #expect(art.open.dataProvider?.data != art.blink.dataProvider?.data)
         }
-        #expect(areas.max()! / areas.min()! < 1.15, "A pose changes Boa's visual weight: \(areas)")
-        #expect(CompanionKit.load(for: .samurai) == nil) // Preserve existing fallback until its art is approved.
+        #expect(areas.max()! / areas.min()! < 1.15, "A pose changes \(character)'s visual weight: \(areas)")
+        #expect(areas.allSatisfy { (950...1300).contains($0) }, "\(character) differs too much from the roster: \(areas)")
+        #expect(CompanionKit.load(for: .none) == nil)
     }
 
-    @Test("Every edge stays attached and falls back safely at screen boundaries")
-    func layout() throws {
-        let kit = try #require(CompanionKit.load(for: .hancock))
+    @Test("Every character stays attached and falls back safely at screen boundaries",
+          arguments: PomodoroCharacter.allCases.filter { $0 != .none })
+    func layout(character: PomodoroCharacter) throws {
+        let kit = try #require(CompanionKit.load(for: character))
         let screen = CGRect(x: -1440, y: -900, width: 1440, height: 900)
         for width in [236.0, 172] {
             for origin in [CGPoint(x: -900, y: -500), CGPoint(x: -1439, y: -899),
@@ -56,9 +59,10 @@ struct HangingCompanionTests {
         }
     }
 
-    @Test("Native layer does not intercept dragging; Idle and Reduce Motion stay parked")
-    func stationary() async throws {
-        let kit = try #require(CompanionKit.load(for: .hancock))
+    @Test("Every native companion leaves dragging alone; Idle and Reduce Motion stay parked",
+          arguments: PomodoroCharacter.allCases.filter { $0 != .none })
+    func stationary(character: PomodoroCharacter) async throws {
+        let kit = try #require(CompanionKit.load(for: character))
         let view = HangingSpriteView(frame: CGRect(x: 0, y: 0, width: 400, height: 200))
         let pill = CGRect(x: 82, y: 60, width: 236, height: 46)
         view.configure(kit: kit, mode: .calm, edge: .bottom, position: 0.5,
@@ -75,9 +79,10 @@ struct HangingCompanionTests {
         view.stop()
     }
 
-    @Test("Lively demonstrates a relocation immediately and cancelled work stays cancelled")
-    func lively() async throws {
-        let kit = try #require(CompanionKit.load(for: .hancock))
+    @Test("Every Lively companion relocates immediately and cancels unfinished work",
+          arguments: PomodoroCharacter.allCases.filter { $0 != .none })
+    func lively(character: PomodoroCharacter) async throws {
+        let kit = try #require(CompanionKit.load(for: character))
         let view = HangingSpriteView(frame: CGRect(x: 0, y: 0, width: 400, height: 200))
         let pill = CGRect(x: 82, y: 60, width: 236, height: 46)
         view.configure(kit: kit, mode: .stroll, edge: .top, position: 0.5,
@@ -93,44 +98,113 @@ struct HangingCompanionTests {
     }
 
     @Test("Inspect the native hanging renderer locally when requested")
-    func nativeReview() throws {
+    func nativeReview() async throws {
         guard ProcessInfo.processInfo.environment["POMODORO_HANGING_REVIEW"] == "1" else { return }
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
         let host = NSHostingController(rootView: HangingReview())
         let window = NSWindow(contentViewController: host)
-        window.title = "Boa Companion Review"
+        window.title = "Companion Roster Review"
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
+        let delegate = CompanionReviewDelegate()
+        window.delegate = delegate
         window.center(); window.makeKeyAndOrderFront(nil); app.activate(ignoringOtherApps: true)
-        let timeout = Timer.scheduledTimer(withTimeInterval: 110, repeats: false) { _ in
-            MainActor.assumeIsolated {
-                app.stop(nil)
-                app.postEvent(NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [],
-                    timestamp: 0, windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0)!, atStart: true)
+        let timeout = Timer.scheduledTimer(withTimeInterval: 600, repeats: false) { _ in
+            MainActor.assumeIsolated { CompanionReviewDelegate.stopReview() }
+        }
+        // Yield the test's MainActor task before entering AppKit's event loop.
+        // A run-loop callback (rather than a MainActor task or main-queue block)
+        // leaves the relocation tasks free to run alongside native UI events.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            RunLoop.main.perform {
+                MainActor.assumeIsolated {
+                    withExtendedLifetime(delegate) { app.run() }
+                    continuation.resume()
+                }
             }
         }
-        app.run(); timeout.invalidate(); window.close()
+        timeout.invalidate()
+        window.close()
+    }
+
+    @Test("Switching kits during a Lively tuck cannot bring back the previous character",
+          arguments: PomodoroCharacter.allCases.filter { $0 != .none })
+    func replacingKit(character: PomodoroCharacter) async throws {
+        let roster = PomodoroCharacter.allCases.filter { $0 != .none }
+        let next = roster[(roster.firstIndex(of: character)! + 1) % roster.count]
+        let original = try #require(CompanionKit.load(for: character))
+        let replacement = try #require(CompanionKit.load(for: next))
+        let view = HangingSpriteView(frame: CGRect(x: 0, y: 0, width: 400, height: 200))
+        let pill = CGRect(x: 82, y: 60, width: 236, height: 46)
+        view.configure(kit: original, mode: .stroll, edge: .top, position: 0.5,
+                       pill: pill, screen: view.bounds, reduceMotion: false)
+        try await Task.sleep(for: .seconds(0.95))
+        view.configure(kit: replacement, mode: .calm, edge: .bottom, position: 0.5,
+                       pill: pill, screen: view.bounds, reduceMotion: false)
+        try await Task.sleep(for: .seconds(0.75))
+        #expect(view.placement?.edge == .bottom)
+        let content = try #require(view.layer?.sublayers?.first?.sublayers?.first?.contents)
+        // Evaluate CF identity before the assertion macro; passing AnyObject
+        // identity through the current Testing macro crashes Swift's SIL lowering.
+        let matches = (content as AnyObject) === (replacement.artwork(for: .bottom).open as AnyObject)
+        #expect(matches)
+        view.stop()
     }
 }
 
 private struct HangingReview: View {
     @State private var mode = CharacterIdleMode.calm
+    @State private var character = PomodoroCharacter.samurai
+    @State private var appearance = ThemeAppearance.dark
+    private var reviewTheme: ThemeConfiguration {
+        var theme = ThemeConfiguration()
+        theme.appearance = appearance
+        return theme
+    }
     var body: some View {
         VStack(spacing: 8) {
+            let roster = PomodoroCharacter.allCases.filter { $0 != .none }
+            ForEach(0..<2, id: \.self) { row in
+                HStack(spacing: 8) {
+                    ForEach(Array(roster[(row * 3)..<(row * 3 + 3)])) { choice in
+                        Button(choice.displayName) { character = choice }
+                            .buttonStyle(.bordered)
+                            .tint(character == choice ? .red : .gray)
+                            .font(.system(size: 11))
+                    }
+                }
+            }
             Picker("Mode", selection: $mode) {
                 Text("Idle").tag(CharacterIdleMode.calm)
                 Text("Lively").tag(CharacterIdleMode.stroll)
             }.pickerStyle(.segmented).frame(width: 250)
+            Picker("Appearance", selection: $appearance) {
+                Text("Light").tag(ThemeAppearance.light)
+                Text("Dark").tag(ThemeAppearance.dark)
+            }.pickerStyle(.segmented).frame(width: 250)
             ForEach(StageEdge.allCases, id: \.self) { edge in
                 ZStack(alignment: .topLeading) {
                     ThemeTimerPreview().position(x: 200, y: 70)
-                    HangingCompanion(character: .hancock, mode: mode, edge: edge, position: 0.5,
+                    HangingCompanion(character: character, mode: mode, edge: edge, position: 0.5,
                         pill: CGRect(x: 82, y: 47, width: 236, height: 46),
-                        screen: CGRect(x: 0, y: 0, width: 400, height: 160))
-                }.frame(width: 400, height: 160)
+                        screen: CGRect(x: 0, y: 0, width: 400, height: 172))
+                }.frame(width: 400, height: 172)
             }
-        }.padding(18).background(Color(white: 0.14))
-            .pomodoroAppearance(ThemeConfiguration(), inWindow: true)
+        }.padding(18).background(Color(white: appearance == .light ? 0.96 : 0.14))
+            .pomodoroAppearance(reviewTheme, inWindow: true)
+    }
+}
+
+@MainActor
+private final class CompanionReviewDelegate: NSObject, NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) { Self.stopReview() }
+    static func stopReview() {
+        let app = NSApplication.shared
+        app.stop(nil)
+        if let event = NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [],
+            timestamp: 0, windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0) {
+            app.postEvent(event, atStart: true)
+        }
     }
 }

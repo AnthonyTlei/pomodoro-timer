@@ -124,10 +124,11 @@ struct SettingsTests {
         var general = 0, companion = 0
         settings.onChange = { general += 1 }
         settings.onCompanionChange = { companion += 1 }
+        settings.character = .ninja
         settings.characterIdleMode = .stroll
         settings.characterCompanionEdge = .bottom
         settings.characterCompanionPosition = 0.8
-        #expect(companion == 3)
+        #expect(companion == 4)
         #expect(general == 0)
         settings.focusMinutes = 35
         #expect(general == 1)
