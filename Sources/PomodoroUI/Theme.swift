@@ -1,3 +1,5 @@
+import AppKit
+import Observation
 import PomodoroCore
 import SwiftUI
 
@@ -70,21 +72,60 @@ public extension ThemeAppearance {
     }
 }
 public extension View {
-    func pomodoroAppearance(_ theme: ThemeConfiguration) -> some View {
-        modifier(PomodoroAppearanceModifier(theme: theme))
+    /// Windows resolve System independently of their last override. Widgets and
+    /// offscreen renderers inherit their host's scheme and set only the environment.
+    func pomodoroAppearance(_ theme: ThemeConfiguration, inWindow: Bool = true) -> some View {
+        modifier(PomodoroAppearanceModifier(theme: theme, inWindow: inWindow))
     }
 }
 private struct PomodoroAppearanceModifier: ViewModifier {
     let theme: ThemeConfiguration
-    @Environment(\.colorScheme) private var systemScheme
+    let inWindow: Bool
+    @Environment(\.colorScheme) private var inheritedScheme
+    @ViewBuilder
     func body(content: Content) -> some View {
+        let systemScheme = inWindow ? ApplicationAppearanceState.shared.scheme : inheritedScheme
         let scheme = theme.appearance.colorScheme ?? systemScheme
-        content.environment(\.pomodoroTheme, theme)
-            .environment(\.colorScheme, scheme)
-            .preferredColorScheme(theme.appearance.colorScheme)
-            .tint(Theme.legibleTint(for: .focus, in: theme, scheme: scheme))
+        if inWindow {
+            // A hosting window's inherited colorScheme can still be the previous
+            // override. Resolve System from NSApplication rather than feeding
+            // that stale window value back into SwiftUI's environment.
+            content.environment(\.pomodoroTheme, theme)
+                .environment(\.colorScheme, scheme)
+                .preferredColorScheme(theme.appearance.colorScheme)
+                .tint(Theme.legibleTint(for: .focus, in: theme, scheme: scheme))
+        } else {
+            content.environment(\.pomodoroTheme, theme)
+                .environment(\.colorScheme, scheme)
+                .tint(Theme.legibleTint(for: .focus, in: theme, scheme: scheme))
+        }
     }
 }
+
+/// NSApplication's effective appearance follows the system independently of any
+/// individual window override. One observer also keeps already-open windows live
+/// when macOS changes appearance; it never changes the application's appearance.
+@Observable
+@MainActor
+private final class ApplicationAppearanceState {
+    static let shared = ApplicationAppearanceState()
+    private(set) var scheme: ColorScheme
+    @ObservationIgnored private var observation: NSKeyValueObservation?
+
+    private init() {
+        scheme = Self.resolve(NSApplication.shared.effectiveAppearance)
+        observation = NSApplication.shared.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+            Task { @MainActor [weak self] in
+                self?.scheme = Self.resolve(NSApplication.shared.effectiveAppearance)
+            }
+        }
+    }
+
+    private static func resolve(_ appearance: NSAppearance) -> ColorScheme {
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? .dark : .light
+    }
+}
+
 /// Observes preferences at each hosting boundary, keeping open windows in sync.
 public struct ThemedView<Content: View>: View {
     private let settings: PomodoroSettings

@@ -66,7 +66,7 @@ struct PomodoroWidget: Widget {
                     WidgetBackground(phase: entry.snapshot.phase)
                         .environment(\.pomodoroTheme, entry.snapshot.theme ?? .init())
                 }
-                .pomodoroAppearance(entry.snapshot.theme ?? .init())
+                .pomodoroAppearance(entry.snapshot.theme ?? .init(), inWindow: false)
         }
         .configurationDisplayName("Pomodoro")
         .description("Start, pause, and skip your pomodoro without leaving what you're doing.")

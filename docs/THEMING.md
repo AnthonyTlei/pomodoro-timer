@@ -63,6 +63,11 @@ Original / System / full tint and clears the saved custom palette.
 - `PomodoroUI/Theme.swift` resolves semantic tokens from the SwiftUI environment.
   `ThemedView` observes settings at the four app hosting boundaries. Views do not
   reach into global preferences, so previews and widgets can use explicit themes.
+  For native windows, System resolves from `NSApplication.effectiveAppearance`,
+  independent of a window's last override. The native window preference and the
+  resolved SwiftUI scheme then agree, without forcing a previous window appearance
+  back into System. An application-appearance observer updates already-open System windows.
+  Widgets and offscreen previews use their host environment without changing windows.
 - Shared timer snapshots carry optional appearance data. Legacy snapshots still
   decode; a malformed theme does not discard otherwise valid timer state. Theme
   changes participate in widget change detection, while ordinary countdown ticks

@@ -29,7 +29,7 @@ struct ThemeRenderTests {
                     }
                         .padding(10)
                         .background(appearance == .dark ? Color(white: 0.14) : Color(white: 0.96))
-                        .pomodoroAppearance(theme))
+                        .pomodoroAppearance(theme, inWindow: false))
                     renderer.scale = 2
                     let image = try #require(renderer.nsImage)
                     let data = try #require(image.tiffRepresentation)

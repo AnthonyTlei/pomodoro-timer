@@ -49,7 +49,7 @@ struct AppearancePresentationTests {
             theme.appearance = appearance
             settings.theme = theme
             let renderer = ImageRenderer(content:
-                ThemedView(settings: settings) {
+                VStack {
                     VStack(alignment: .leading, spacing: 18) {
                         Text("Appearance").font(.system(size: 16, weight: .semibold))
                         AppearanceSettingsView(settings: settings)
@@ -58,6 +58,7 @@ struct AppearancePresentationTests {
                     .frame(width: 440)
                     .background(appearance == .dark ? Color(white: 0.14) : Color(white: 0.96))
                 }
+                .pomodoroAppearance(theme, inWindow: false)
             )
             renderer.scale = 2
             let image = try #require(renderer.nsImage)
