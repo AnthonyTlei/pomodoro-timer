@@ -28,44 +28,7 @@ final class FloatingBar: NSPanel {
     /// gap where the skip button used to be; and `tuck` must park a secondary control
     /// squarely *under* the play button rather than merely near it, which is what
     /// sells it as emerging from underneath.
-    enum Metrics {
-        static let height: CGFloat = 46
-
-        static let leading: CGFloat = 11
-        static let trailing: CGFloat = 10
-
-        static let ring: CGFloat = 28
-        static let ringGap: CGFloat = 9
-        static let readout: CGFloat = 74
-        static let readoutGap: CGFloat = 12
-
-        /// The play/pause button, larger than the rest because it is the one control
-        /// that is always there.
-        static let primary: CGFloat = 28
-        static let secondary: CGFloat = 26
-        static let controlGap: CGFloat = 6
-
-        /// The play button's leading edge, measured from the pill's own.
-        static let primaryX = leading + ring + ringGap + readout + readoutGap
-
-        /// The leading edge of the nth secondary control, counting outward from the
-        /// play button.
-        static func secondaryX(_ index: Int) -> CGFloat {
-            primaryX + primary + controlGap + CGFloat(index) * (secondary + controlGap)
-        }
-
-        /// How far back the nth secondary control sits when parked, so its leading
-        /// edge lands on the play button's.
-        static func tuck(_ index: Int) -> CGFloat { primaryX - secondaryX(index) }
-
-        /// Two secondary controls and the trailing inset past them.
-        static let width = secondaryX(1) + secondary + trailing
-
-        /// The collapsed form ends one trailing inset past the play button, which
-        /// leaves it with exactly the air it has in the open pill — so the short bar
-        /// is a real end to the layout rather than a crop through it.
-        static let compactWidth = primaryX + primary + trailing
-    }
+    typealias Metrics = PillLayout.Metrics
 
     /// Sized to hold the hover-revealed controls without reflowing.
     ///
@@ -130,10 +93,20 @@ final class FloatingBar: NSPanel {
 
     /// The pill's current hit rect, shared with AppKit hit testing.
     let geometry = BarGeometry()
+    private let settings: PomodoroSettings
+    var onOpenSettings: (() -> Void)?
+    var layout: PillLayout { PillLayout(orientation: presentation.orientation) }
+
+    private var companionVisible = false
+    private var sessionActive = true
+    private var screensAwake = true
+    private var systemAwake = true
 
     init(controller: TimerController, settings: PomodoroSettings) {
+        self.settings = settings
+        let initialLayout = PillLayout(orientation: settings.pillOrientation)
         super.init(
-            contentRect: NSRect(origin: .zero, size: Self.panelSize),
+            contentRect: NSRect(origin: .zero, size: initialLayout.panelSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -157,19 +130,41 @@ final class FloatingBar: NSPanel {
         isMovableByWindowBackground = true
         hidesOnDeactivate = false
         isExcludedFromWindowsMenu = true
+        presentation.orientation = settings.pillOrientation
+        geometry.layout = initialLayout
+        geometry.hitFrame = initialLayout.pillFrame
 
-        let host = FloatingBarHostingView(rootView: FloatingBarView(
+        let host = FloatingBarHostingView(rootView: ThemedView(settings: settings) { FloatingBarView(
             controller: controller,
             stage: stage,
             presentation: presentation,
             geometry: geometry,
             onCollapsed: { [weak self] in self?.reconcileHover() }
-        ))
+        ) })
         host.geometry = geometry
-        host.frame = NSRect(origin: .zero, size: Self.panelSize)
+        host.frame = NSRect(origin: .zero, size: initialLayout.panelSize)
         contentView = host
 
         restorePosition(settings: settings)
+        stage.idleMode = settings.characterIdleMode
+        stage.companionEdge = settings.characterCompanionEdge
+        stage.companionPosition = settings.characterCompanionPosition
+        updateCompanionScreenBounds()
+        NotificationCenter.default.addObserver(self, selector: #selector(updateCompanionScreenBounds),
+                                                name: NSWindow.didMoveNotification, object: self)
+        NotificationCenter.default.addObserver(self, selector: #selector(updateCompanionScreenBounds),
+                                                name: NSWindow.didChangeScreenNotification, object: self)
+        NotificationCenter.default.addObserver(self, selector: #selector(updateCompanionScreenBounds),
+                                                name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        let workspace = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.sessionDidResignActiveNotification, NSWorkspace.willSleepNotification,
+                     NSWorkspace.screensDidSleepNotification] {
+            workspace.addObserver(self, selector: #selector(companionWorkspaceChanged(_:)), name: name, object: nil)
+        }
+        for name in [NSWorkspace.sessionDidBecomeActiveNotification, NSWorkspace.didWakeNotification,
+                     NSWorkspace.screensDidWakeNotification] {
+            workspace.addObserver(self, selector: #selector(companionWorkspaceChanged(_:)), name: name, object: nil)
+        }
     }
 
     /// Borderless panels aren't key by default, which would stop the buttons
@@ -177,7 +172,102 @@ final class FloatingBar: NSPanel {
     /// focus away from the app you're working in.
     override var canBecomeKey: Bool { true }
 
+    // Route secondary clicks before a SwiftUI button or the native drag surface
+    // receives them. Trackpad secondary clicks arrive as rightMouseDown too.
+    override func sendEvent(_ event: NSEvent) {
+        if acceptsContextMenu(event), let contentView {
+            presentation.setHovering(true)
+            NSMenu.popUpContextMenu(makeContextMenu(), with: event, for: contentView)
+            reconcileHover()
+            return
+        }
+        super.sendEvent(event)
+    }
+
+    func acceptsContextMenu(_ event: NSEvent) -> Bool {
+        let secondary = event.type == .rightMouseDown
+            || (event.type == .leftMouseDown && event.modifierFlags.contains(.control))
+        return secondary && layout.nativeRect(geometry.hitFrame).contains(event.locationInWindow)
+    }
+
+    func makeContextMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.appearance = effectiveAppearance
+        func item(_ title: String, symbol: String, action: Selector) {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            menu.addItem(item)
+        }
+        item("Settings…", symbol: "gearshape", action: #selector(openSettingsFromMenu))
+        item("Switch to \(settings.pillOrientation.opposite.title)",
+             symbol: settings.pillOrientation == .horizontal ? "rectangle.portrait" : "rectangle",
+             action: #selector(switchOrientationFromMenu))
+        menu.addItem(.separator())
+        item("Hide Floating Bar", symbol: "eye.slash", action: #selector(hideFromMenu))
+        return menu
+    }
+
+    @objc private func openSettingsFromMenu() { onOpenSettings?() }
+    @objc private func switchOrientationFromMenu() { settings.pillOrientation = settings.pillOrientation.opposite }
+    @objc private func hideFromMenu() { settings.showFloatingBar = false }
+
+    /// Preserve the visible pill's center on rotation, then fit its new extent on
+    /// the current display. Dragging itself retains the original multi-screen rules.
+    func setOrientation(_ orientation: PillOrientation) {
+        guard presentation.orientation != orientation else { return }
+        let compact = presentation.mode == .compact
+        let oldVisible = layout.nativeRect(layout.visibleFrame(compact: compact))
+        let center = CGPoint(x: frame.minX + oldVisible.midX, y: frame.minY + oldVisible.midY)
+        presentation.orientation = orientation
+        let newLayout = layout
+        geometry.layout = newLayout
+        geometry.hitFrame = newLayout.visibleFrame(compact: presentation.mode == .compact)
+        let newVisible = newLayout.nativeRect(newLayout.visibleFrame(compact: compact))
+        var origin = CGPoint(x: center.x - newVisible.midX + Self.margin,
+                             y: center.y - newVisible.midY + Self.margin)
+        if let bounds = (screen ?? NSScreen.main)?.frame {
+            origin.x = min(max(origin.x, bounds.minX), bounds.maxX - newLayout.size.width)
+            origin.y = min(max(origin.y, bounds.minY), bounds.maxY - newLayout.size.height)
+        }
+        setFrame(CGRect(x: origin.x - Self.margin, y: origin.y - Self.margin,
+                        width: newLayout.panelSize.width, height: newLayout.panelSize.height), display: true)
+        contentView?.setFrameSize(newLayout.panelSize)
+        updateCompanionScreenBounds()
+        persistPosition(to: settings)
+        reconcileHover()
+    }
+
     // MARK: - Position
+
+    func setCompanionVisible(_ visible: Bool) {
+        companionVisible = visible
+        stage.companionActive = visible && sessionActive && screensAwake && systemAwake
+    }
+
+    @objc private func companionWorkspaceChanged(_ notification: Notification) {
+        switch notification.name {
+        case NSWorkspace.sessionDidResignActiveNotification: sessionActive = false
+        case NSWorkspace.sessionDidBecomeActiveNotification: sessionActive = true
+        case NSWorkspace.screensDidSleepNotification: screensAwake = false
+        case NSWorkspace.screensDidWakeNotification: screensAwake = true
+        case NSWorkspace.willSleepNotification: systemAwake = false
+        case NSWorkspace.didWakeNotification: systemAwake = true
+        default: return
+        }
+        setCompanionVisible(companionVisible)
+        updateCompanionScreenBounds()
+    }
+
+    @objc private func updateCompanionScreenBounds() {
+        guard let visible = (screen ?? NSScreen.main)?.visibleFrame else { return }
+        // AppKit's screen origin is bottom-left; the artwork uses top-left panel
+        // coordinates. Use this panel's own display, including negative origins.
+        stage.idleScreenBounds = CGRect(x: visible.minX - frame.minX,
+                                         y: frame.maxY - visible.maxY,
+                                         width: visible.width, height: visible.height)
+    }
 
     /// The stored origin is the *pill's*, not the panel's.
     ///
@@ -193,8 +283,8 @@ final class FloatingBar: NSPanel {
             // character has room to rise from the top. Tucking it against the menu
             // bar the way it used to would leave the top-reveal with nowhere to go.
             setPillOrigin(NSPoint(
-                x: visible.maxX - Self.size.width - 24,
-                y: visible.maxY - Self.size.height - Self.margin - 24
+                x: visible.maxX - layout.size.width - 24,
+                y: visible.maxY - layout.size.height - Self.margin - 24
             ))
         }
     }
@@ -218,8 +308,8 @@ final class FloatingBar: NSPanel {
         let pill = NSRect(
             x: frameRect.minX + Self.margin,
             y: frameRect.minY + Self.margin,
-            width: Self.size.width,
-            height: Self.size.height
+            width: layout.size.width,
+            height: layout.size.height
         )
 
         // Already somewhere on a display: nothing to correct, including the top strip
@@ -264,9 +354,9 @@ final class FloatingBar: NSPanel {
         let screenHeight = NSScreen.screens.first?.frame.height ?? 0
         return CGRect(
             x: pillOrigin.x,
-            y: screenHeight - pillOrigin.y - Self.size.height,
-            width: Self.size.width,
-            height: Self.size.height
+            y: screenHeight - pillOrigin.y - layout.size.height,
+            width: layout.size.width,
+            height: layout.size.height
         )
     }
 
@@ -289,7 +379,7 @@ final class FloatingBar: NSPanel {
     func reconcileHover() {
         let mouse = NSEvent.mouseLocation
         let local = NSPoint(x: mouse.x - frame.minX, y: mouse.y - frame.minY)
-        presentation.setHovering(geometry.hitFrame.contains(local))
+        presentation.setHovering(layout.nativeRect(geometry.hitFrame).contains(local))
     }
 }
 
@@ -307,9 +397,11 @@ final class FloatingBar: NSPanel {
 /// the target.
 @MainActor
 final class BarGeometry {
+    var layout = PillLayout()
+    private(set) var revision = 0
     /// In the panel's own coordinates. Starts expanded, which is the bar's state
     /// before anything has had a chance to collapse it.
-    var hitFrame: CGRect = FloatingBar.pillFrame
+    var hitFrame: CGRect = FloatingBar.pillFrame { didSet { revision += 1 } }
 }
 
 // MARK: - Contents
@@ -321,6 +413,8 @@ final class BarGeometry {
 /// secondary controls only materialise on hover, because a bar that lives on top of
 /// everything you do all day earns its place by being ignorable.
 struct FloatingBarView: View {
+    @Environment(\.pomodoroTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     @Bindable var controller: TimerController
     @Bindable var stage: CharacterStageModel
@@ -340,7 +434,7 @@ struct FloatingBarView: View {
     /// setting, observed properly.
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var tint: Color { Theme.tint(for: controller.phase) }
+    private var tint: Color { Theme.tint(for: controller.phase, in: theme) }
 
     /// The raw pointer state, and the only thing left that uses it directly is the
     /// hover flourish. Everything else keys on the *form* the bar is in — see
@@ -351,6 +445,9 @@ struct FloatingBarView: View {
     private var isCompact: Bool { presentation.mode == .compact }
 
     private typealias M = FloatingBar.Metrics
+    private var layout: PillLayout { PillLayout(orientation: presentation.orientation) }
+    private var vertical: Bool { presentation.orientation == .vertical }
+    private var visibleSize: CGSize { isCompact ? layout.compactSize : layout.size }
 
     /// Constant, and that is the point.
     ///
@@ -362,12 +459,6 @@ struct FloatingBarView: View {
     /// moves.
     private var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: 15, style: .continuous)
-    }
-
-    /// The only dimension that travels. Height is shared by both forms, so one
-    /// animating number and one offset carry the whole change.
-    private var pillWidth: CGFloat {
-        isCompact ? FloatingBar.compactSize.width : FloatingBar.size.width
     }
 
     /// Under Reduce Motion the box does not travel — it swaps, and only the contents
@@ -468,47 +559,57 @@ struct FloatingBarView: View {
                 generation: stage.generation,
                 foreground: stage.foreground,
                 edge: stage.edge,
-                pillFrame: FloatingBar.pillFrame
+                pillFrame: layout.pillFrame
             )
             // Normally behind the pill; in front for the cue that steps forward.
             .zIndex(stage.foreground ? 2 : 0)
 
+            if stage.showsCompanion {
+                if CompanionKit.available(for: stage.character) {
+                    HangingCompanion(character: stage.character, mode: stage.idleMode,
+                        edge: stage.companionEdge, position: stage.companionPosition,
+                        pill: isCompact ? layout.compactFrame : layout.pillFrame,
+                        screen: stage.idleScreenBounds)
+                        .zIndex(1.5)
+                } else {
+                    IdleCompanion(
+                        character: stage.character, mode: stage.idleMode,
+                        pill: isCompact ? layout.compactFrame : layout.pillFrame,
+                        screen: stage.idleScreenBounds,
+                        readoutCenterX: layout.pillFrame.minX + M.leading + M.ring + M.ringGap + M.readout / 2
+                    )
+                    .id("\(stage.character.rawValue)-\(stage.idleMode.rawValue)")
+                    .zIndex(0)
+                }
+            }
+
             pill
                 .scaleEffect(stage.pillScale, anchor: .center)
-                .position(x: FloatingBar.pillFrame.midX, y: FloatingBar.pillFrame.midY)
+                .position(x: layout.pillFrame.midX, y: layout.pillFrame.midY)
                 .zIndex(1)
         }
-        .frame(width: FloatingBar.panelSize.width, height: FloatingBar.panelSize.height)
+        .frame(width: layout.panelSize.width, height: layout.panelSize.height)
         .onChange(of: presentation.mode) { _, mode in
             guard mode == .compact else {
                 // Widen the moment expansion begins, so a click during the morph
                 // still lands.
-                geometry.hitFrame = FloatingBar.pillFrame
+                geometry.hitFrame = layout.pillFrame
                 return
             }
+            let orientation = presentation.orientation
+            let revision = geometry.revision
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(FloatingBar.morphDuration))
                 // A hover during the collapse can have already reversed it.
-                guard presentation.mode == .compact else { return }
-                geometry.hitFrame = FloatingBar.compactFrame
+                guard presentation.mode == .compact, presentation.orientation == orientation,
+                      geometry.revision == revision else { return }
+                geometry.hitFrame = layout.compactFrame
                 onCollapsed()
             }
         }
     }
 
-    private var pill: some View {
-        // One layout, held at full width in both forms, revealed by the growing box
-        // rather than re-flowed into it.
-        //
-        // Inserting the readout and controls on the way out is what made the first
-        // attempt read as a replacement: SwiftUI re-ran the layout, so everything
-        // arrived at once in a box that was still moving. Nothing here is ever laid
-        // out twice — only the clip and one offset move.
-        //
-        // Spacing is per-item rather than one `spacing:` on the stack, and there is no
-        // `Spacer`, because the row has to add up to `Metrics.width` exactly. Any slack
-        // at all would be distributed by the layout, and then the position of every
-        // control would depend on the box width instead of being fixed by it.
+    private var horizontalContents: some View {
         HStack(spacing: 0) {
             phaseRing
 
@@ -545,18 +646,48 @@ struct FloatingBarView: View {
         .padding(.leading, M.leading)
         .padding(.trailing, M.trailing)
         .frame(width: M.width, height: M.height)
-        // Both forms share their leading edge, and that is the whole point of this
-        // arrangement: the ring, the countdown and the play button do not move at all
-        // across a morph. Only the trailing edge travels, and only reset and skip
-        // travel with it.
-        //
-        // It used to be centred, with the content pinned to the box's leading edge —
-        // so the box grew both ways by half and dragged the entire contents sideways
-        // with it. Every element the eye was already tracking slid 51pt on a collapse,
-        // including the play button, for no reason other than that the box was
-        // symmetric. Nothing about a reveal requires the thing already revealed to
-        // move.
-        .frame(width: pillWidth, height: M.height, alignment: .leading)
+    }
+
+    private var verticalContents: some View {
+        VStack(spacing: 0) {
+            phaseRing
+            verticalReadout.padding(.top, M.ringGap)
+            primaryControl.padding(.top, M.readoutGap).zIndex(2)
+            Group {
+                secondaryControl("forward.end.fill", label: "Skip", index: 0) { controller.skip() }.zIndex(1)
+                secondaryControl("arrow.counterclockwise", label: "Reset", index: 1) { controller.reset() }.zIndex(0)
+            }
+            .padding(.top, M.controlGap)
+            .animation(reveal, value: isCompact)
+        }
+        .padding(.top, M.leading)
+        .padding(.bottom, M.trailing)
+        .frame(width: M.height, height: M.width)
+    }
+
+    private var verticalReadout: some View {
+        VStack(spacing: 3) {
+            Text(controller.displayTime)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .monospacedDigit().tracking(-0.5)
+                .foregroundStyle(controller.isRunning ? .primary : .secondary)
+                .lineLimit(1).minimumScaleFactor(0.75)
+            Text(!controller.isRunning ? "PAUSED" : controller.phase == .focus ? "FOCUS"
+                : controller.phase == .shortBreak ? "BREAK" : "LONG")
+                .font(.system(size: 7, weight: .bold)).tracking(0.4)
+                .foregroundStyle(controller.isRunning
+                    ? Theme.legibleTint(for: controller.phase, in: theme, scheme: colorScheme) : Color.secondary)
+        }
+        .frame(width: M.height - 4, height: M.readout)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(controller.phase.title), \(controller.displayTime) remaining\(controller.isRunning ? "" : ", paused")")
+    }
+
+    private var pill: some View {
+        Group {
+            if vertical { verticalContents } else { horizontalContents }
+        }
+        .frame(width: visibleSize.width, height: visibleSize.height, alignment: vertical ? .top : .leading)
         // The wash goes on *before* the clip rather than carrying a clip of its own.
         //
         // It still ends up cut to the pill — one `clipShape` below now takes the
@@ -564,7 +695,7 @@ struct FloatingBarView: View {
         // this shape has a continuous corner radius interpolating 23 -> 15, and it
         // was being rebuilt three times a frame (here, the clip, and the glass).
         .background {
-            Theme.backdrop(for: controller.phase)
+            Theme.backdrop(for: controller.phase, in: theme)
                 .opacity(controller.isRunning ? 0.85 : 0.45)
                 .animation(.smooth(duration: 0.5), value: controller.phase)
                 .animation(.smooth(duration: 0.3), value: controller.isRunning)
@@ -581,7 +712,8 @@ struct FloatingBarView: View {
         // loop once with the ring's `trim`. An offset is a render-time transform, and
         // it interpolates on the same curve as the width it is derived from, so the
         // two stay exactly in step and the edge does not wobble.
-        .offset(x: (pillWidth - M.width) / 2)
+        .offset(x: (visibleSize.width - layout.size.width) / 2,
+                y: (visibleSize.height - layout.size.height) / 2)
         .opacity(hoverFlourish && !hovering ? 0.92 : 1)
         .scaleEffect(hoverFlourish && !hovering ? 0.99 : 1.0, anchor: .center)
         .onHover { presentation.setHovering($0) }
@@ -610,7 +742,7 @@ struct FloatingBarView: View {
                 .trim(from: 0, to: controller.progress)
                 .stroke(
                     LinearGradient(
-                        colors: [Theme.highlight(for: controller.phase), tint],
+                        colors: [Theme.highlight(for: controller.phase, in: theme), tint],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
@@ -643,7 +775,7 @@ struct FloatingBarView: View {
 
             Image(systemName: Theme.symbol(for: controller.phase))
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(tint)
+                .foregroundStyle(Theme.legibleTint(for: controller.phase, in: theme, scheme: colorScheme))
                 .contentTransition(.symbolEffect(.replace))
                 // A slow breath while running — opacity only. An earlier version
                 // pulsed a coloured shadow, which at this size read as a smudge.
@@ -741,7 +873,7 @@ struct FloatingBarView: View {
             Text(controller.isRunning ? controller.phase.title : "Paused")
                 .font(.system(size: 8, weight: .bold))
                 .tracking(0.6)
-                .foregroundStyle(controller.isRunning ? tint : .secondary)
+                .foregroundStyle(controller.isRunning ? Theme.legibleTint(for: controller.phase, in: theme, scheme: colorScheme) : Color.secondary)
                 .contentTransition(.opacity)
         }
         .frame(width: 74, alignment: .leading)
@@ -804,7 +936,8 @@ struct FloatingBarView: View {
         action: @escaping () -> Void
     ) -> some View {
         control(symbol, label: label, size: M.secondary, action: action)
-            .offset(x: controlsRevealed ? 0 : M.tuck(index))
+            .offset(x: vertical || controlsRevealed ? 0 : M.tuck(index),
+                    y: !vertical || controlsRevealed ? 0 : M.tuck(index))
             .opacity(controlsRevealed ? 1 : 0)
             // Invisible is not absent: parked under the play button at zero opacity
             // these would still take the click, and VoiceOver would still offer them.
@@ -822,7 +955,7 @@ struct FloatingBarView: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: size * 0.38, weight: .bold))
-                .foregroundStyle(tint == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white))
+                .foregroundStyle(tint == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.ink(for: controller.phase, in: theme)))
                 .contentTransition(.symbolEffect(.replace))
                 .modifier(ControlSurface(tint: tint, size: size))
         }
@@ -887,6 +1020,34 @@ private struct ControlSurface: ViewModifier {
 
 // MARK: - Hit testing
 
+/// Moves the panel from native mouse events instead of depending on SwiftUI to
+/// forward an unhandled background click. Screen coordinates keep the pointer
+/// anchored to the readout as the panel moves across displays.
+final class WindowDragView: NSView {
+    private var startMouse: NSPoint?
+    private var startFrame: NSRect?
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        startMouse = window.convertPoint(toScreen: event.locationInWindow)
+        startFrame = window.frame
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window, let startMouse, let startFrame else { return }
+        let mouse = window.convertPoint(toScreen: event.locationInWindow)
+        let proposed = startFrame.offsetBy(dx: mouse.x - startMouse.x, dy: mouse.y - startMouse.y)
+        window.setFrame(window.constrainFrameRect(proposed, to: window.screen), display: true)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        startMouse = nil
+        startFrame = nil
+    }
+}
+
 /// Refuses clicks that land in the transparent margin.
 ///
 /// A borderless window still swallows every click inside its frame, so without this
@@ -896,20 +1057,31 @@ private struct ControlSurface: ViewModifier {
 /// begin with a hit test.
 final class FloatingBarHostingView<Content: View>: NSHostingView<Content> {
 
+    private lazy var dragView: WindowDragView = {
+        let view = WindowDragView(frame: .zero)
+        view.setAccessibilityElement(false)
+        addSubview(view)
+        return view
+    }()
+
     /// Assigned right after construction — `NSHostingView`'s designated initialiser
     /// takes only a root view, so this cannot be passed in.
     var geometry: BarGeometry?
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
-        // Falls back to the full pill rather than to nothing: a missing geometry must
-        // degrade to the old behaviour, not to a bar that ignores every click.
-        //
-        // Both forms are the pill's full height and centred vertically in the panel, so
-        // their rects are the same whether the view is flipped or not. Only their width
-        // differs, and x is unaffected either way.
-        let target = geometry?.hitFrame ?? FloatingBar.pillFrame
+        let layout = geometry?.layout ?? PillLayout()
+        let drawn = geometry?.hitFrame ?? layout.pillFrame
+        let target = isFlipped ? drawn : layout.nativeRect(drawn)
         guard target.contains(local) else { return nil }
+
+        // Only the ring/readout drag. Both orientations keep buttons in SwiftUI.
+        let drawnDrag = layout.dragFrame.intersection(drawn)
+        let dragFrame = isFlipped ? drawnDrag : layout.nativeRect(drawnDrag)
+        if dragFrame.contains(local) {
+            dragView.frame = dragFrame
+            return dragView
+        }
         return super.hitTest(point)
     }
 }

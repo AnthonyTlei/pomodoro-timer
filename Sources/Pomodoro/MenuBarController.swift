@@ -42,11 +42,11 @@ final class MenuBarController {
     private func buildMenu() {
         let menu = NSMenu()
 
-        let header = NSHostingView(rootView: MenuHeaderView(
+        let header = NSHostingView(rootView: ThemedView(settings: settings) { MenuHeaderView(
             controller: controller,
             settings: settings,
             completedToday: stats.stats().pomodoros
-        ))
+        ) })
         header.frame = NSRect(x: 0, y: 0, width: 258, height: 90)
         headerItem.view = header
         menu.addItem(headerItem)
@@ -117,12 +117,12 @@ final class MenuBarController {
 
         // The header is SwiftUI observing the controller, so it redraws itself; only
         // today's count has to be pushed, since it lives in the stats store.
-        if let host = headerItem.view as? NSHostingView<MenuHeaderView> {
-            host.rootView = MenuHeaderView(
+        if let host = headerItem.view as? NSHostingView<ThemedView<MenuHeaderView>> {
+            host.rootView = ThemedView(settings: settings) { MenuHeaderView(
                 controller: controller,
                 settings: settings,
                 completedToday: stats.stats().pomodoros
-            )
+            ) }
         }
     }
 

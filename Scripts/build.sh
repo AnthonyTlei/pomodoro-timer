@@ -4,6 +4,7 @@
 #
 #   ./Scripts/build.sh                build + install to /Applications
 #   ./Scripts/build.sh --no-install   build the bundle into .build/ only
+#   ./Scripts/build.sh --no-install --run   build and restart the local app
 #
 # SwiftPM has no concept of an app extension, so the widget is built as an ordinary
 # executable and hand-assembled into Contents/PlugIns/PomodoroWidget.appex here.
@@ -18,7 +19,14 @@ WIDGET_NAME="PomodoroWidget"
 BUNDLE=".build/${APP_NAME}.app"
 APPEX="$BUNDLE/Contents/PlugIns/${WIDGET_NAME}.appex"
 INSTALL=1
-[[ "${1:-}" == "--no-install" ]] && INSTALL=0
+RUN=0
+for arg in "$@"; do
+    case "$arg" in
+        --no-install) INSTALL=0 ;;
+        --run) RUN=1 ;;
+        *) echo "Usage: $0 [--no-install] [--run]" >&2; exit 2 ;;
+    esac
+done
 
 echo "==> Building release binaries"
 swift build -c release --product "$APP_NAME"
@@ -30,6 +38,11 @@ rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources" "$APPEX/Contents/MacOS"
 cp "$BIN_DIR/$APP_NAME" "$BUNDLE/Contents/MacOS/$APP_NAME"
 cp Resources/Info.plist "$BUNDLE/Contents/Info.plist"
+# SwiftPM's shared UI artwork must travel with the app, including installs on
+# another Mac. Keep the bundle intact so its manifest and future kits stay together.
+if [[ -d "$BIN_DIR/Pomodoro_PomodoroUI.bundle" ]]; then
+    cp -R "$BIN_DIR/Pomodoro_PomodoroUI.bundle" "$BUNDLE/Contents/Resources/"
+fi
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 
 cp "$BIN_DIR/$WIDGET_NAME" "$APPEX/Contents/MacOS/$WIDGET_NAME"
@@ -58,8 +71,11 @@ fi
 if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
     IDENTITY="$CODESIGN_IDENTITY"
 else
+    # Use the certificate fingerprint: duplicate certificate names make codesign
+    # reject an otherwise valid identity as ambiguous. awk also succeeds when no
+    # identity exists, so set -e/pipefail can reach the ad-hoc fallback below.
     IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
-        | grep -oE '"[^"]+"' | head -1 | tr -d '"')"
+        | awk 'length($2) == 40 && !found { print $2; found = 1 }')"
 fi
 
 if [[ -z "$IDENTITY" ]]; then
@@ -103,4 +119,17 @@ if [[ "$INSTALL" == "1" ]]; then
     echo "    Launch with: open \"$DEST/${APP_NAME}.app\""
 else
     echo "==> Built $BUNDLE (not installed)"
+fi
+
+if [[ "$RUN" == "1" ]]; then
+    # Launch Services otherwise reuses the old running process after a rebuild.
+    if [[ "$INSTALL" == "0" ]]; then
+        pkill -x "$APP_NAME" 2>/dev/null || true
+        sleep 0.5
+        LAUNCH_PATH="$ROOT/$BUNDLE"
+    else
+        LAUNCH_PATH="$DEST/${APP_NAME}.app"
+    fi
+    open "$LAUNCH_PATH"
+    echo "==> Launched $LAUNCH_PATH"
 fi

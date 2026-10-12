@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import PomodoroCore
 
 /// Which of the floating bar's two forms is on screen.
 ///
@@ -72,6 +73,7 @@ public struct BarPresentationPolicy: Equatable, Sendable {
 @Observable
 @MainActor
 public final class BarPresentationModel {
+    public var orientation: PillOrientation = .horizontal
 
     /// Injected so the lifecycle tests run in a second rather than in half a
     /// minute of real waiting.

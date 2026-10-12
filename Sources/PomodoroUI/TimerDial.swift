@@ -7,6 +7,8 @@ import SwiftUI
 /// `Text(timerInterval:)`, the app hands in a string it refreshes on its own tick.
 /// Same dial, two very different tick sources.
 public struct TimerDial<TimeLabel: View>: View {
+    @Environment(\.pomodoroTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     let phase: Phase
     let progress: Double
@@ -38,7 +40,7 @@ public struct TimerDial<TimeLabel: View>: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [Theme.tint(for: phase).opacity(0.30), .clear],
+                        colors: [Theme.bloom(for: phase, in: theme, highlighted: false), .clear],
                         center: .center,
                         startRadius: 0,
                         endRadius: 70
@@ -56,9 +58,9 @@ public struct TimerDial<TimeLabel: View>: View {
                 .stroke(
                     AngularGradient(
                         colors: [
-                            Theme.tint(for: phase).opacity(0.75),
-                            Theme.tint(for: phase),
-                            Theme.highlight(for: phase),
+                            Theme.tint(for: phase, in: theme).opacity(0.75),
+                            Theme.tint(for: phase, in: theme),
+                            Theme.highlight(for: phase, in: theme),
                         ],
                         center: .center,
                         startAngle: .degrees(-90),
@@ -68,14 +70,14 @@ public struct TimerDial<TimeLabel: View>: View {
                 )
                 // Start at 12 o'clock and sweep clockwise, the way a kitchen timer does.
                 .rotationEffect(.degrees(-90))
-                .shadow(color: Theme.tint(for: phase).opacity(0.5), radius: 4)
+                .shadow(color: Theme.tint(for: phase, in: theme).opacity(0.5), radius: 4)
 
             VStack(spacing: 0) {
                 timeLabel
                 Text(phase.title.uppercased())
                     .font(.system(size: 8, weight: .bold))
                     .tracking(0.9)
-                    .foregroundStyle(Theme.tint(for: phase))
+                    .foregroundStyle(Theme.legibleTint(for: phase, in: theme, scheme: colorScheme))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .transition(.blurReplace)

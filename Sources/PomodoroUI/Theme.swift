@@ -1,43 +1,45 @@
+import AppKit
+import Observation
 import PomodoroCore
 import SwiftUI
 
-/// Colour and material choices shared by the app and the widget, so the floating
-/// bar and the desktop widget can't drift apart.
+/// Semantic colors shared by every app surface and both widget sizes.
 public enum Theme {
-
-    public static func tint(for phase: Phase) -> Color {
-        switch phase {
-        case .focus: Color(red: 0.91, green: 0.30, blue: 0.26)
-        case .shortBreak: Color(red: 0.20, green: 0.66, blue: 0.53)
-        case .longBreak: Color(red: 0.24, green: 0.51, blue: 0.85)
-        }
+    public static func tint(for phase: Phase, in theme: ThemeConfiguration = .init()) -> Color {
+        theme.palette[phase].tint.color
     }
-
-    /// The lighter end of each phase's gradient — the leading edge of the ring and
-    /// the rail, so progress reads as movement rather than a flat block of colour.
-    public static func highlight(for phase: Phase) -> Color {
-        switch phase {
-        case .focus: Color(red: 0.98, green: 0.55, blue: 0.36)
-        case .shortBreak: Color(red: 0.42, green: 0.86, blue: 0.66)
-        case .longBreak: Color(red: 0.47, green: 0.74, blue: 0.98)
-        }
+    public static func highlight(for phase: Phase, in theme: ThemeConfiguration = .init()) -> Color {
+        theme.palette[phase].highlight.color
     }
-
-    /// Backdrop for a surface showing this phase. Two stops of the phase colour at
-    /// low opacity — enough for glass to have something to bend, not so much that
-    /// the countdown loses contrast.
-    public static func backdrop(for phase: Phase) -> LinearGradient {
-        LinearGradient(
-            colors: [
-                tint(for: phase).opacity(0.34),
-                highlight(for: phase).opacity(0.10),
-                tint(for: phase).opacity(0.04),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+    public static func backdrop(for phase: Phase, in theme: ThemeConfiguration = .init()) -> LinearGradient {
+        let base = theme.palette.surface ?? theme.palette[phase].tint
+        let light = theme.palette.surface.map { $0.mixed(with: ThemeColor(0xFFFFFF), amount: 0.28) }
+            ?? theme.palette[phase].highlight
+        let strength = theme.surfaceStrength
+        return LinearGradient(
+            colors: [base.color.opacity(0.34 * strength), light.color.opacity(0.10 * strength), base.color.opacity(0.04 * strength)],
+            startPoint: .topLeading, endPoint: .bottomTrailing
         )
     }
-
+    public static func legibleTint(for phase: Phase, in theme: ThemeConfiguration, scheme: ColorScheme) -> Color {
+        theme.palette[phase].tint.legible(on: ThemeColor(scheme == .dark ? 0x242424 : 0xF5F5F5)).color
+    }
+    public static func ink(for phase: Phase, in theme: ThemeConfiguration) -> Color {
+        theme.palette[phase].tint.contrastingInk.color
+    }
+    /// Labels spanning a phase gradient need contrast against both ends.
+    public static func gradientInk(for phase: Phase, in theme: ThemeConfiguration) -> Color {
+        let colors = theme.palette[phase]
+        let white = ThemeColor(0xFFFFFF)
+        let black = ThemeColor(0)
+        let whiteContrast = min(colors.tint.contrast(with: white), colors.highlight.contrast(with: white))
+        let blackContrast = min(colors.tint.contrast(with: black), colors.highlight.contrast(with: black))
+        return (whiteContrast >= blackContrast ? white : black).color
+    }
+    public static func bloom(for phase: Phase, in theme: ThemeConfiguration, highlighted: Bool = true) -> Color {
+        let phaseColor = highlighted ? theme.palette[phase].highlight : theme.palette[phase].tint
+        return (theme.palette.surface ?? phaseColor).color.opacity(0.30 * theme.surfaceStrength)
+    }
     public static func symbol(for phase: Phase) -> String {
         switch phase {
         case .focus: "timer"
@@ -45,6 +47,94 @@ public enum Theme {
         case .longBreak: "figure.walk"
         }
     }
+}
+
+public extension ThemeColor {
+    var color: Color { Color(.sRGB, red: red, green: green, blue: blue, opacity: 1) }
+}
+
+private struct PomodoroThemeKey: EnvironmentKey {
+    static let defaultValue = ThemeConfiguration()
+}
+public extension EnvironmentValues {
+    var pomodoroTheme: ThemeConfiguration {
+        get { self[PomodoroThemeKey.self] }
+        set { self[PomodoroThemeKey.self] = newValue }
+    }
+}
+public extension ThemeAppearance {
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
+public extension View {
+    /// Windows resolve System independently of their last override. Widgets and
+    /// offscreen renderers inherit their host's scheme and set only the environment.
+    func pomodoroAppearance(_ theme: ThemeConfiguration, inWindow: Bool = true) -> some View {
+        modifier(PomodoroAppearanceModifier(theme: theme, inWindow: inWindow))
+    }
+}
+private struct PomodoroAppearanceModifier: ViewModifier {
+    let theme: ThemeConfiguration
+    let inWindow: Bool
+    @Environment(\.colorScheme) private var inheritedScheme
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        let systemScheme = inWindow ? ApplicationAppearanceState.shared.scheme : inheritedScheme
+        let scheme = theme.appearance.colorScheme ?? systemScheme
+        if inWindow {
+            // A hosting window's inherited colorScheme can still be the previous
+            // override. Resolve System from NSApplication rather than feeding
+            // that stale window value back into SwiftUI's environment.
+            content.environment(\.pomodoroTheme, theme)
+                .environment(\.colorScheme, scheme)
+                .preferredColorScheme(theme.appearance.colorScheme)
+                .tint(Theme.legibleTint(for: .focus, in: theme, scheme: scheme))
+        } else {
+            content.environment(\.pomodoroTheme, theme)
+                .environment(\.colorScheme, scheme)
+                .tint(Theme.legibleTint(for: .focus, in: theme, scheme: scheme))
+        }
+    }
+}
+
+/// NSApplication's effective appearance follows the system independently of any
+/// individual window override. One observer also keeps already-open windows live
+/// when macOS changes appearance; it never changes the application's appearance.
+@Observable
+@MainActor
+private final class ApplicationAppearanceState {
+    static let shared = ApplicationAppearanceState()
+    private(set) var scheme: ColorScheme
+    @ObservationIgnored private var observation: NSKeyValueObservation?
+
+    private init() {
+        scheme = Self.resolve(NSApplication.shared.effectiveAppearance)
+        observation = NSApplication.shared.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+            Task { @MainActor [weak self] in
+                self?.scheme = Self.resolve(NSApplication.shared.effectiveAppearance)
+            }
+        }
+    }
+
+    private static func resolve(_ appearance: NSAppearance) -> ColorScheme {
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? .dark : .light
+    }
+}
+
+/// Observes preferences at each hosting boundary, keeping open windows in sync.
+public struct ThemedView<Content: View>: View {
+    private let settings: PomodoroSettings
+    private let content: Content
+    public init(settings: PomodoroSettings, @ViewBuilder content: () -> Content) {
+        self.settings = settings
+        self.content = content()
+    }
+    public var body: some View { content.pomodoroAppearance(settings.theme) }
 }
 
 // MARK: - Liquid Glass

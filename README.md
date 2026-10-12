@@ -4,14 +4,14 @@
 
 # Pomodoro
 
-**A menu bar pomodoro timer for macOS, with a floating glass bar<br>and a small cast of characters who show up when a session ends.**
+**A menu bar pomodoro timer for macOS, with a floating glass bar<br>and a small cast of characters to keep you company.**
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?style=flat-square&logo=apple&logoColor=white)](#requirements)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org)
 [![SwiftUI](https://img.shields.io/badge/SwiftUI-native-0A84FF?style=flat-square)](https://developer.apple.com/xcode/swiftui/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3DA639?style=flat-square)](LICENSE)
 
-[Install](#install) · [Features](#features) · [The cast](#the-cast) · [Build from source](#build-from-source) · [RigStudio](#rigstudio)
+[Install](#install) · [Features](#features) · [Make it yours](#make-it-yours) · [The cast](#the-cast) · [Build from source](#build-from-source) · [RigStudio](#rigstudio)
 
 <br>
 
@@ -21,7 +21,7 @@
 
 <br>
 
-No Dock icon and no window to manage. The countdown lives in the menu bar, and a floating pill sits wherever you drop it. When a phase changes, a character pops out from behind the pill, does one short move, and goes back.
+No Dock icon and no window to manage. The countdown lives in the menu bar, and a floating pill sits wherever you drop it. When a phase changes, a character pops out from behind the pill, does one short move, and goes back. You can also keep a small companion around between sessions, turn the pill upright, and pick colors of your own.
 
 ## Features
 
@@ -38,6 +38,13 @@ Focus, short break and long break, with the long break every *n* pomodoros. Ever
 ### 🫧&nbsp; The floating bar
 A draggable glass pill with a progress ring, the countdown and the phase. Play and pause are always there, with reset and skip on hover. It can shrink while a timer runs and opens again when you come near it.
 
+Choose **Horizontal / Vertical** in **Settings → Timer → Orientation**. Both use
+the same size and glass treatment, with upright controls and companion artwork.
+Right-click the pill (or secondary-click with two fingers on a trackpad) for
+**Settings…**, **Switch to Vertical / Horizontal**, and **Hide Floating Bar**.
+Show it again from the menu bar's **Show Floating Bar** item.
+[Floating bar behavior and implementation](docs/FLOATING-BAR.md).
+
 </td>
 </tr>
 <tr>
@@ -45,6 +52,7 @@ A draggable glass pill with a progress ring, the countdown and the phase. Play a
 
 ### 🎭&nbsp; Six characters
 A samurai, a ninja, a man in a rabbit suit, a general, Power and Boa Hancock. Each has its own move for focus start, break start and long break. They are decoration; the notification and the chime do the real work.
+
 
 </td>
 <td valign="top">
@@ -66,6 +74,63 @@ A notification banner and a system chime at each change, with separate sounds fo
 ### 📊&nbsp; Widget and stats
 A desktop widget in small and medium sizes, with start, pause and skip buttons through App Intents. Daily pomodoros and focus time are kept in a local JSON file. Nothing leaves your Mac.
 
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🧸&nbsp; Always-on companions
+Keep your character around between performances. **Idle** stays in your chosen spot with gentle breathing and blinking; **Lively** changes sides occasionally, with a quiet rest between moves. All six can peek over the top, hang below, or climb either side.
+
+Choose the mode and position in **Settings → Character**. **Off** is the default. Companions follow the compact pill, adjust at screen edges, and make way for the original performances. Reduce Motion keeps them still. [Companion kit guide](docs/COMPANIONS.md).
+
+</td>
+<td valign="top">
+
+### 🎨&nbsp; Your colors
+The original palette, one inspired by each character, and a saved **Custom** palette. Preview each phase, pick its color, and tune the glass tint. Choose **System**, **Light** or **Dark**, and use **Match character** when you want the colors to follow your pick.
+
+Open **Settings → Appearance**. Colors carry through the floating bar, menu header, settings, statistics and widgets. Character artwork keeps its own colors. [Appearance guide and UI map](docs/THEMING.md).
+
+</td>
+</tr>
+</table>
+
+## Make it yours
+
+Same timer, a little more personality. These images use the app's native views and bundled artwork, captured with temporary preferences.
+
+<div align="center">
+<img src="docs/images/qol-lively.gif" width="760" alt="All six companions tuck behind their matching pills and reappear at the side in Lively mode">
+<br><sub>Lively's first relocation, replayed here. In the app, moves are separated by 26-second rests.</sub>
+</div>
+
+<details>
+<summary><b>See the still companion preview</b></summary>
+<br>
+<img src="docs/images/qol-companions.png" width="760" alt="Samurai, Ninja, Rabbit Suit Guy, Power, The General and Boa Hancock peeking over character-colored pills">
+</details>
+
+<br>
+
+<table>
+<tr>
+<td align="center" width="50%" valign="top">
+<img src="docs/images/qol-appearance.png" width="360" alt="Native Appearance settings with character palettes, phase preview, appearance mode and surface tint">
+<br><b>Your palette</b><br><sub>Pick a character theme or make your own</sub>
+<br><sub><a href="docs/images/qol-custom-colors.png">See the custom-color controls</a></sub>
+</td>
+<td align="center" width="50%" valign="top">
+<img src="docs/images/qol-horizontal.png" width="360" alt="Horizontal timer with Boa Hancock peeking over the rim">
+<br>
+<img src="docs/images/qol-vertical.png" width="200" alt="Vertical timer with upright countdown, controls and Boa Hancock">
+<br><b>Your orientation</b><br><sub>The same pill, turned upright</sub>
+</td>
+</tr>
+<tr>
+<td align="center" colspan="2">
+<img src="docs/images/qol-context-menu.png" width="520" alt="Right-click menu offering Settings, Switch to Vertical and Hide Floating Bar">
+<br><b>Just a right-click away</b><br><sub>Settings, orientation and visibility</sub>
 </td>
 </tr>
 </table>
@@ -142,10 +207,20 @@ The app is not sandboxed on purpose. Controlling Music and Spotify over AppleScr
 
 1. Click the timer in the menu bar and press **Start**.
 2. Allow notifications when macOS asks.
-3. Drag the floating bar wherever you like. It remembers the spot.
-4. Open **Settings** from the menu to set durations, sounds, music control and your character.
+3. Drag the ring or countdown on the floating bar wherever you like. It remembers the spot.
+4. Open **Settings** from the menu bar or by right-clicking the pill to set durations, sounds, music control, your character and colors.
 
 ## Build from source
+
+To rebuild and restart the local app without installing it:
+
+```bash
+./Scripts/build.sh --no-install --run
+```
+
+Restarting resets any active timer. Use `./Scripts/build.sh --run` to install and
+launch instead. To reopen an existing build, quit Pomodoro and run
+`open .build/Pomodoro.app`.
 
 ```bash
 swift run Pomodoro    # run without installing
@@ -156,7 +231,7 @@ swift test            # run the tests
 
 ## RigStudio
 
-The characters are drawn from vector paths and moved by a small joint rig. Judging that by reading keyframes doesn't work, so the animation has its own workbench. It is a separate program and never ships inside the app.
+The phase-change characters are drawn from vector paths and moved by a small joint rig. Judging that by reading keyframes doesn't work, so the animation has its own workbench. It is a separate program and never ships inside the app.
 
 ```bash
 swift run RigStudio
@@ -180,7 +255,7 @@ It plays every move with a scrubbable timeline, onion skin, joint pivots and liv
 | `PomodoroWidget` | The widget extension, built as a plain executable and put into the bundle by hand, since SwiftPM has no app extensions |
 | `RigStudio` | The animation workbench |
 
-Design notes and specs are in [`docs/`](docs/).
+Hanging companions use bundled sprite atlases alongside those rigs; see the [companion kit guide](docs/COMPANIONS.md) to add artwork. Design notes and specs are in [`docs/`](docs/). The [documentation image guide](docs/README-IMAGES.md) explains how to refresh the feature gallery.
 
 ## Credits
 

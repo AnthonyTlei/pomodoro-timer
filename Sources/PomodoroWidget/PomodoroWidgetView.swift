@@ -6,15 +6,17 @@ import WidgetKit
 
 /// The widget's tinted backdrop, extended behind the rounded corners by the system.
 struct WidgetBackground: View {
+    @Environment(\.pomodoroTheme) private var theme
+
     let phase: Phase
 
     var body: some View {
         ZStack {
-            Theme.backdrop(for: phase)
+            Theme.backdrop(for: phase, in: theme)
             // An off-centre bloom so the surface has a light source. Without one,
             // glass on top has nothing to refract and reads as flat grey.
             RadialGradient(
-                colors: [Theme.highlight(for: phase).opacity(0.30), .clear],
+                colors: [Theme.bloom(for: phase, in: theme), .clear],
                 center: UnitPoint(x: 0.18, y: 0.12),
                 startRadius: 2,
                 endRadius: 150
@@ -25,6 +27,9 @@ struct WidgetBackground: View {
 }
 
 struct PomodoroWidgetView: View {
+    @Environment(\.pomodoroTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
+
     @Environment(\.widgetFamily) private var family
     let snapshot: TimerSnapshot
     /// The moment this entry represents — not "now". See `TimerSnapshot.progress(at:)`.
@@ -104,7 +109,7 @@ struct PomodoroWidgetView: View {
             HStack(spacing: 6) {
                 Image(systemName: Theme.symbol(for: snapshot.phase))
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.tint(for: snapshot.phase))
+                    .foregroundStyle(Theme.legibleTint(for: snapshot.phase, in: theme, scheme: colorScheme))
                     .contentTransition(.symbolEffect(.replace))
                 Text(snapshot.phase.title)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
@@ -155,7 +160,7 @@ struct PomodoroWidgetView: View {
         Button(intent: ToggleTimerIntent()) {
             Image(systemName: snapshot.isRunning ? "pause.fill" : "play.fill")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.tint(for: snapshot.phase))
+                .foregroundStyle(Theme.legibleTint(for: snapshot.phase, in: theme, scheme: colorScheme))
                 .contentTransition(.symbolEffect(.replace))
                 .glassControl(size: 32)
         }

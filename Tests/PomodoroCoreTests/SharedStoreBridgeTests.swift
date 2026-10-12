@@ -2,23 +2,17 @@ import Foundation
 import Testing
 @testable import PomodoroCore
 
-/// The app↔widget bridge, exercised against a throwaway App Group container.
-///
-/// On unsandboxed macOS, `containerURL(forSecurityApplicationGroupIdentifier:)`
-/// resolves *any* group ID to `~/Library/Group Containers/<id>`, so a unique ID
-/// per test gives real end-to-end file I/O without ever touching the app's real
-/// container. Each test removes its container afterwards. If the OS ever starts
-/// returning nil for unentitled IDs, `#require` fails these tests loudly rather
-/// than silently writing into the real Application Support fallback.
+/// Real bridge file I/O in throwaway directories. macOS may resolve a fabricated
+/// App Group path without allowing it to be created; tests cannot infer storage
+/// access from that URL. Production App Group entitlements are verified separately.
 @Suite("SharedStore bridge")
 struct SharedStoreBridgeTests {
 
     private func makeIsolatedStore() throws -> (store: SharedStore, container: URL) {
-        let groupID = "group.pomodoro.tests.\(UUID().uuidString)"
-        let container = try #require(
-            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
-        )
-        return (SharedStore(appGroupID: groupID), container)
+        let container = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pomodoro-bridge-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
+        return (SharedStore(directory: container), container)
     }
 
     @Test("A snapshot round-trips through the container byte-for-value")

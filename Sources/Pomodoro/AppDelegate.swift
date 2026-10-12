@@ -48,9 +48,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             controller.settingsChanged()
             floatingBar?.stage.character = settings.character
+            floatingBar?.stage.idleMode = settings.characterIdleMode
+            floatingBar?.stage.companionEdge = settings.characterCompanionEdge
+            floatingBar?.stage.companionPosition = settings.characterCompanionPosition
             floatingBar?.presentation.setCompactEnabled(settings.compactFloatingBar)
             syncFloatingBarVisibility()
             if !settings.controlMusic { music.forgetPaused() }
+        }
+        settings.onAppearanceChange = { [weak self] in self?.controller.appearanceChanged() }
+        settings.onCompanionChange = { [weak self] in
+            guard let self else { return }
+            floatingBar?.stage.character = settings.character
+            floatingBar?.stage.idleMode = settings.characterIdleMode
+            floatingBar?.stage.companionEdge = settings.characterCompanionEdge
+            floatingBar?.stage.companionPosition = settings.characterCompanionPosition
+        }
+        settings.onFloatingBarChange = { [weak self] in
+            guard let self else { return }
+            floatingBar?.setOrientation(settings.pillOrientation)
+            floatingBar?.presentation.setCompactEnabled(settings.compactFloatingBar)
+            syncFloatingBarVisibility()
         }
 
         menuBar.onOpenSettings = { [weak self] in self?.showSettings() }
@@ -200,6 +217,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settings.showFloatingBar {
             if floatingBar == nil {
                 floatingBar = FloatingBar(controller: controller, settings: settings)
+                floatingBar?.onOpenSettings = { [weak self] in self?.showSettings() }
                 // The stage must know the chosen character before any cue fires —
                 // relying on `perform` to set it left it `.none` at rest.
                 floatingBar?.stage.character = settings.character
@@ -208,9 +226,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 observeFloatingBarMoves()
             }
             floatingBar?.orderFrontRegardless()
+            floatingBar?.setCompanionVisible(true)
         } else {
             floatingBar?.persistPosition(to: settings)
             floatingBar?.orderOut(nil)
+            floatingBar?.setCompanionVisible(false)
         }
         menuBar.refresh()
     }
@@ -237,11 +257,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindow == nil {
             settingsWindow = makeWindow(
                 title: "Pomodoro Settings",
-                content: SettingsView(
+                content: ThemedView(settings: settings) { SettingsView(
                     settings: settings,
                     onChange: { [weak self] in self?.settings.onChange?() },
                     onPreview: { [weak self] cue in self?.performCharacter(cue) }
-                )
+                ) }
             )
         }
         present(settingsWindow)
@@ -249,7 +269,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showStats() {
         if statsWindow == nil {
-            statsWindow = makeWindow(title: "Statistics", content: StatsView(stats: stats))
+            statsWindow = makeWindow(title: "Statistics", content: ThemedView(settings: settings) { StatsView(stats: stats) })
         }
         present(statsWindow)
     }

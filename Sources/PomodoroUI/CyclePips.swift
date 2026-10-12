@@ -8,6 +8,7 @@ import SwiftUI
 /// long-break colour so the reward at the end of the cycle is visible from the
 /// first session.
 public struct CyclePips: View {
+    @Environment(\.pomodoroTheme) private var theme
 
     let position: Int
     let length: Int
@@ -32,7 +33,7 @@ public struct CyclePips: View {
                         // "done" and "doing" never read as the same state.
                         if index == position, phase == .focus {
                             Capsule()
-                                .stroke(Theme.tint(for: .focus), lineWidth: 1.2)
+                                .stroke(Theme.tint(for: .focus, in: theme), lineWidth: 1.2)
                         }
                     }
                     .animation(.smooth(duration: 0.4), value: position)
@@ -46,7 +47,7 @@ public struct CyclePips: View {
 
     private func fill(for index: Int) -> Color {
         if index < position {
-            return Theme.tint(for: index == length - 1 ? .longBreak : .focus)
+            return Theme.tint(for: index == length - 1 ? .longBreak : .focus, in: theme)
         }
         return .primary.opacity(0.16)
     }

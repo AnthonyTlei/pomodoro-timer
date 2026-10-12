@@ -62,7 +62,11 @@ struct PomodoroWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "PomodoroWidget", provider: Provider()) { entry in
             PomodoroWidgetView(snapshot: entry.snapshot, date: entry.date)
-                .containerBackground(for: .widget) { WidgetBackground(phase: entry.snapshot.phase) }
+                .containerBackground(for: .widget) {
+                    WidgetBackground(phase: entry.snapshot.phase)
+                        .environment(\.pomodoroTheme, entry.snapshot.theme ?? .init())
+                }
+                .pomodoroAppearance(entry.snapshot.theme ?? .init(), inWindow: false)
         }
         .configurationDisplayName("Pomodoro")
         .description("Start, pause, and skip your pomodoro without leaving what you're doing.")

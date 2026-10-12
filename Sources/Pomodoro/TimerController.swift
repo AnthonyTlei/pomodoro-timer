@@ -32,9 +32,11 @@ public final class TimerController {
 
     @ObservationIgnored private let settings: PomodoroSettings
     @ObservationIgnored private let stats: StatsStore
-    @ObservationIgnored private let shared = SharedStore()
+    @ObservationIgnored private let shared: SharedStore
     @ObservationIgnored private var lastCommandID: UUID?
     @ObservationIgnored private var lastMirroredSignature: String?
+    @ObservationIgnored private var lastMirroredTheme: ThemeConfiguration?
+    @ObservationIgnored private var snapshotWriteTask: Task<Void, Never>?
     @ObservationIgnored private var ticker: Timer?
     @ObservationIgnored private var deadline: Date?
 
@@ -56,9 +58,10 @@ public final class TimerController {
 
     @ObservationIgnored private var lastFocusRunning = false
 
-    public init(settings: PomodoroSettings, stats: StatsStore) {
+    public init(settings: PomodoroSettings, stats: StatsStore, shared: SharedStore = SharedStore()) {
         self.settings = settings
         self.stats = stats
+        self.shared = shared
         let focusDuration = PomodoroEngine.duration(of: .focus, settings: settings)
         self.remainingSeconds = focusDuration
         self.phaseTotalSeconds = focusDuration
@@ -141,6 +144,9 @@ public final class TimerController {
         }
         publish()
     }
+
+    /// A theme edit changes only presentation, even while a session is paused.
+    public func appearanceChanged() { publish() }
 
     // MARK: - Ticking
 
@@ -243,8 +249,10 @@ public final class TimerController {
         // widget derives it from `deadline`, so re-writing the file every second
         // would burn WidgetKit's reload budget for no visible change.
         let signature = "\(phase.rawValue)|\(isRunning)|\(deadline?.timeIntervalSince1970 ?? -1)|\(totalSeconds)|\(isRunning ? 0 : remainingSeconds)|\(completedFocusSessions)"
-        guard signature != lastMirroredSignature else { return }
+        let theme = settings.theme
+        guard signature != lastMirroredSignature || theme != lastMirroredTheme else { return }
         lastMirroredSignature = signature
+        lastMirroredTheme = theme
 
         let snapshot = TimerSnapshot(
             phase: phase,
@@ -255,7 +263,8 @@ public final class TimerController {
             completedToday: stats.stats().pomodoros,
             cyclePosition: completedFocusSessions % max(settings.pomodorosUntilLongBreak, 1),
             cycleLength: settings.pomodorosUntilLongBreak,
-            updatedAt: Date()
+            updatedAt: Date(),
+            theme: theme
         )
 
         // Off the main thread, deliberately. An App Group container lives behind
@@ -264,7 +273,11 @@ public final class TimerController {
         // ever built, which presented as "nothing renders" rather than as a hang.
         // The widget is a convenience; it must never be able to take the app down.
         let store = shared
-        Task.detached(priority: .utility) {
+        let previousWrite = snapshotWriteTask
+        snapshotWriteTask = Task.detached(priority: .utility) {
+            // Color pickers can emit edits rapidly. Serialize writes so an older
+            // detached task cannot overwrite the newest theme or timer state.
+            await previousWrite?.value
             store.write(snapshot)
             await MainActor.run { WidgetCenter.shared.reloadAllTimelines() }
         }

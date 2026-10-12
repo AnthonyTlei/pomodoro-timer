@@ -4,6 +4,31 @@ import Testing
 
 @Suite("Settings")
 struct SettingsTests {
+    @Test("Orientation defaults to horizontal, persists, and tolerates unknown values")
+    func pillOrientation() {
+        let defaults = makeDefaults()
+        let settings = PomodoroSettings(defaults: defaults)
+        #expect(settings.pillOrientation == .horizontal)
+        settings.pillOrientation = .vertical
+        #expect(PomodoroSettings(defaults: defaults).pillOrientation == .vertical)
+        defaults.set("future-layout", forKey: PomodoroSettings.Key.pillOrientation.rawValue)
+        #expect(settings.pillOrientation == .horizontal)
+    }
+
+    @Test("Floating bar preferences use only the presentation callback, with legacy fallback")
+    func floatingCallbacks() {
+        let settings = PomodoroSettings(defaults: makeDefaults())
+        var general = 0, presentation = 0
+        settings.onChange = { general += 1 }
+        settings.onFloatingBarChange = { presentation += 1 }
+        settings.pillOrientation = .vertical
+        settings.compactFloatingBar = true
+        settings.showFloatingBar = false
+        #expect(presentation == 3 && general == 0)
+        settings.onFloatingBarChange = nil
+        settings.pillOrientation = .horizontal
+        #expect(general == 1)
+    }
 
     @Test("Defaults match the classic 25/5/15/4 pomodoro")
     func defaults() {
@@ -79,5 +104,58 @@ struct SettingsTests {
         settings.autoStartBreaks = false
 
         #expect(calls == 2)
+    }
+
+    @Test("The idle companion is opt-in, persists, and tolerates future values")
+    func idleCompanionSettings() {
+        let defaults = makeDefaults()
+        let first = PomodoroSettings(defaults: defaults)
+        #expect(first.characterIdleMode == .off)
+        var calls = 0
+        first.onChange = { calls += 1 }
+        for mode in CharacterIdleMode.allCases {
+            first.characterIdleMode = mode
+            #expect(PomodoroSettings(defaults: defaults).characterIdleMode == mode)
+        }
+        #expect(calls == 3)
+        defaults.set("future-mode", forKey: PomodoroSettings.Key.characterIdleMode.rawValue)
+        #expect(PomodoroSettings(defaults: defaults).characterIdleMode == .off)
+    }
+
+    @Test("Hanging placement persists without changing legacy mode values")
+    func hangingPlacement() {
+        let defaults = makeDefaults()
+        let settings = PomodoroSettings(defaults: defaults)
+        #expect(settings.characterCompanionEdge == .top)
+        #expect(settings.characterCompanionPosition == 0.5)
+        settings.characterIdleMode = .calm
+        settings.characterCompanionEdge = .trailing
+        settings.characterCompanionPosition = 0.75
+        let restored = PomodoroSettings(defaults: defaults)
+        #expect(restored.characterCompanionEdge == .trailing)
+        #expect(restored.characterCompanionPosition == 0.75)
+        #expect(defaults.string(forKey: PomodoroSettings.Key.characterIdleMode.rawValue) == "calm")
+        settings.characterCompanionPosition = .nan
+        #expect(settings.characterCompanionPosition == 0.5)
+        defaults.set("future-edge", forKey: PomodoroSettings.Key.characterCompanionEdge.rawValue)
+        defaults.set(2.0, forKey: PomodoroSettings.Key.characterCompanionPosition.rawValue)
+        #expect(settings.characterCompanionEdge == .top)
+        #expect(settings.characterCompanionPosition == 1)
+    }
+
+    @Test("Companion presentation edits bypass duration-settings callbacks")
+    func companionCallbacks() {
+        let settings = PomodoroSettings(defaults: makeDefaults())
+        var general = 0, companion = 0
+        settings.onChange = { general += 1 }
+        settings.onCompanionChange = { companion += 1 }
+        settings.character = .ninja
+        settings.characterIdleMode = .stroll
+        settings.characterCompanionEdge = .bottom
+        settings.characterCompanionPosition = 0.8
+        #expect(companion == 4)
+        #expect(general == 0)
+        settings.focusMinutes = 35
+        #expect(general == 1)
     }
 }

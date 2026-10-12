@@ -9,6 +9,8 @@ import SwiftUI
 /// "am I keeping it up", and that's a shape question, not a lookup question. Exact
 /// per-day numbers stay available on hover.
 struct StatsView: View {
+    @Environment(\.pomodoroTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     let stats: StatsStore
 
@@ -30,7 +32,7 @@ struct StatsView: View {
         .padding(22)
         .frame(width: 430)
         .background {
-            Theme.backdrop(for: .focus)
+            Theme.backdrop(for: .focus, in: theme)
                 .opacity(0.5)
                 .ignoresSafeArea()
         }
@@ -69,7 +71,7 @@ struct StatsView: View {
             Text(title.uppercased())
                 .font(.system(size: 9, weight: .bold))
                 .tracking(0.7)
-                .foregroundStyle(Theme.tint(for: phase))
+                .foregroundStyle(Theme.legibleTint(for: phase, in: theme, scheme: colorScheme))
 
             Text(value)
                 .font(.system(size: 30, weight: .medium, design: .rounded))
@@ -83,7 +85,7 @@ struct StatsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 13)
         .padding(.vertical, 11)
-        .background(Theme.tint(for: phase).opacity(0.10), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .background(Theme.tint(for: phase, in: theme).opacity(0.10), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         .glassPanel(in: RoundedRectangle(cornerRadius: 13, style: .continuous))
     }
 
@@ -108,7 +110,7 @@ struct StatsView: View {
                     )
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [Theme.highlight(for: .focus), Theme.tint(for: .focus)],
+                            colors: [Theme.highlight(for: .focus, in: theme), Theme.tint(for: .focus, in: theme)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -143,7 +145,7 @@ struct StatsView: View {
         VStack(spacing: 6) {
             Image(systemName: "chart.bar.xaxis")
                 .font(.system(size: 22, weight: .light))
-                .foregroundStyle(Theme.tint(for: .focus).opacity(0.6))
+                .foregroundStyle(Theme.tint(for: .focus, in: theme).opacity(0.6))
             Text("No completed pomodoros yet")
                 .font(.system(size: 12, weight: .medium))
             Text("Finish a focus session and it'll show up here.")
