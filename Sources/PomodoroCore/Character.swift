@@ -10,8 +10,8 @@ public enum CharacterIdleMode: String, Codable, Sendable, CaseIterable, Identifi
     public var displayName: String {
         switch self {
         case .off: "Off"
-        case .calm: "Still"
-        case .stroll: "Stroll"
+        case .calm: "Idle"
+        case .stroll: "Lively"
         }
     }
 }
