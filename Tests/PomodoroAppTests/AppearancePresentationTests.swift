@@ -15,6 +15,9 @@ struct AppearancePresentationTests {
         app.setActivationPolicy(.regular)
         let settings = PomodoroSettings(defaults: makeAppTestDefaults())
         settings.character = .hancock
+        if ProcessInfo.processInfo.environment["POMODORO_HANGING_SETTINGS_REVIEW"] == "1" {
+            settings.characterIdleMode = .calm
+        }
         let host = NSHostingController(rootView: ThemedView(settings: settings) {
             SettingsView(settings: settings, onChange: {}, onPreview: { _ in })
         })

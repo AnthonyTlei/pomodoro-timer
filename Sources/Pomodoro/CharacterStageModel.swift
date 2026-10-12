@@ -14,6 +14,8 @@ final class CharacterStageModel {
         }
     }
     var idleMode: CharacterIdleMode = .off
+    var companionEdge: StageEdge = .top
+    var companionPosition: Double = 0.5
     var companionActive = false
     var idleScreenBounds: CGRect = .null
     private(set) var isPerforming = false

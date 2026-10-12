@@ -27,6 +27,8 @@ public final class PomodoroSettings {
         case launchAtLogin
         case character
         case characterIdleMode
+        case characterCompanionEdge
+        case characterCompanionPosition
         case themeConfiguration
         case floatingBarX
         case floatingBarY
@@ -38,6 +40,8 @@ public final class PomodoroSettings {
     @ObservationIgnored public var onChange: (() -> Void)?
     /// Appearance updates must never reset a paused countdown or touch music.
     @ObservationIgnored public var onAppearanceChange: (() -> Void)?
+    /// Companion controls only affect decoration, including while paused.
+    @ObservationIgnored public var onCompanionChange: (() -> Void)?
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -62,6 +66,8 @@ public final class PomodoroSettings {
             Key.launchAtLogin.rawValue: false,
             Key.character.rawValue: PomodoroCharacter.none.rawValue,
             Key.characterIdleMode.rawValue: CharacterIdleMode.off.rawValue,
+            Key.characterCompanionEdge.rawValue: StageEdge.top.rawValue,
+            Key.characterCompanionPosition.rawValue: 0.5,
         ])
     }
 
@@ -195,7 +201,35 @@ public final class PomodoroSettings {
             withMutation(keyPath: \.characterIdleMode) {
                 defaults.set(newValue.rawValue, forKey: Key.characterIdleMode.rawValue)
             }
-            onChange?()
+            (onCompanionChange ?? onChange)?()
+        }
+    }
+
+    public var characterCompanionEdge: StageEdge {
+        get {
+            access(keyPath: \.characterCompanionEdge)
+            return StageEdge(rawValue: defaults.string(forKey: Key.characterCompanionEdge.rawValue) ?? "") ?? .top
+        }
+        set {
+            withMutation(keyPath: \.characterCompanionEdge) {
+                defaults.set(newValue.rawValue, forKey: Key.characterCompanionEdge.rawValue)
+            }
+            (onCompanionChange ?? onChange)?()
+        }
+    }
+
+    public var characterCompanionPosition: Double {
+        get {
+            access(keyPath: \.characterCompanionPosition)
+            let value = defaults.double(forKey: Key.characterCompanionPosition.rawValue)
+            return value.isFinite ? min(1, max(0, value)) : 0.5
+        }
+        set {
+            withMutation(keyPath: \.characterCompanionPosition) {
+                defaults.set(newValue.isFinite ? min(1, max(0, newValue)) : 0.5,
+                             forKey: Key.characterCompanionPosition.rawValue)
+            }
+            (onCompanionChange ?? onChange)?()
         }
     }
 

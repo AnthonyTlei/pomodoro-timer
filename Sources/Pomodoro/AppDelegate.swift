@@ -49,11 +49,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             controller.settingsChanged()
             floatingBar?.stage.character = settings.character
             floatingBar?.stage.idleMode = settings.characterIdleMode
+            floatingBar?.stage.companionEdge = settings.characterCompanionEdge
+            floatingBar?.stage.companionPosition = settings.characterCompanionPosition
             floatingBar?.presentation.setCompactEnabled(settings.compactFloatingBar)
             syncFloatingBarVisibility()
             if !settings.controlMusic { music.forgetPaused() }
         }
         settings.onAppearanceChange = { [weak self] in self?.controller.appearanceChanged() }
+        settings.onCompanionChange = { [weak self] in
+            guard let self else { return }
+            floatingBar?.stage.idleMode = settings.characterIdleMode
+            floatingBar?.stage.companionEdge = settings.characterCompanionEdge
+            floatingBar?.stage.companionPosition = settings.characterCompanionPosition
+        }
 
         menuBar.onOpenSettings = { [weak self] in self?.showSettings() }
         menuBar.onOpenStats = { [weak self] in self?.showStats() }

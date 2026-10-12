@@ -47,11 +47,13 @@ A draggable glass pill with a progress ring, the countdown and the phase. Play a
 A samurai, a ninja, a man in a rabbit suit, a general, Power and Boa Hancock. Each has its own move for focus start, break start and long break. They are decoration; the notification and the chime do the real work.
 
 In **Settings → Character → Always-on character**, choose **Idle** for a small idle
-companion that stays in place, or **Lively** to preview a walk immediately and then
-take occasional short walks. **Off** is the default and keeps
-the original phase-change-only behavior. The mini follows the pill in compact mode,
-uses the space below it when there is no room above, and yields to the full-size
-performances. Reduce Motion keeps the mini still.
+companion that stays in place, or **Lively** for occasional movement. Boa now peeks
+over the top, hangs below, or climbs either side; pick an edge and adjust her position
+in the live preview. Lively demonstrates a relocation immediately, then takes quiet
+rests between changes. The other five companions keep their current short walks.
+**Off** is the default and keeps the original phase-change-only behavior. Companions
+follow the compact pill, adjust at screen edges, and yield to full-size performances.
+Reduce Motion keeps them still. [Companion kit authoring guide](docs/COMPANIONS.md).
 
 **Settings → Appearance** offers the original palette, one theme inspired by each
 character, and saved custom colors. Preview each phase, tune its color and surface

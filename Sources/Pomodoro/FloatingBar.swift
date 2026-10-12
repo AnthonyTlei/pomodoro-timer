@@ -176,6 +176,8 @@ final class FloatingBar: NSPanel {
 
         restorePosition(settings: settings)
         stage.idleMode = settings.characterIdleMode
+        stage.companionEdge = settings.characterCompanionEdge
+        stage.companionPosition = settings.characterCompanionPosition
         updateCompanionScreenBounds()
         NotificationCenter.default.addObserver(self, selector: #selector(updateCompanionScreenBounds),
                                                 name: NSWindow.didMoveNotification, object: self)
@@ -526,14 +528,22 @@ struct FloatingBarView: View {
             .zIndex(stage.foreground ? 2 : 0)
 
             if stage.showsCompanion {
-                IdleCompanion(
-                    character: stage.character, mode: stage.idleMode,
-                    pill: isCompact ? FloatingBar.compactFrame : FloatingBar.pillFrame,
-                    screen: stage.idleScreenBounds,
-                    readoutCenterX: FloatingBar.pillFrame.minX + M.leading + M.ring + M.ringGap + M.readout / 2
-                )
-                .id("\(stage.character.rawValue)-\(stage.idleMode.rawValue)")
-                .zIndex(0)
+                if CompanionKit.available(for: stage.character) {
+                    HangingCompanion(character: stage.character, mode: stage.idleMode,
+                        edge: stage.companionEdge, position: stage.companionPosition,
+                        pill: isCompact ? FloatingBar.compactFrame : FloatingBar.pillFrame,
+                        screen: stage.idleScreenBounds)
+                        .zIndex(1.5)
+                } else {
+                    IdleCompanion(
+                        character: stage.character, mode: stage.idleMode,
+                        pill: isCompact ? FloatingBar.compactFrame : FloatingBar.pillFrame,
+                        screen: stage.idleScreenBounds,
+                        readoutCenterX: FloatingBar.pillFrame.minX + M.leading + M.ring + M.ringGap + M.readout / 2
+                    )
+                    .id("\(stage.character.rawValue)-\(stage.idleMode.rawValue)")
+                    .zIndex(0)
+                }
             }
 
             pill

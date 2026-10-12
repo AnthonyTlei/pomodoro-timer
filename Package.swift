@@ -10,7 +10,7 @@ let package = Package(
 
         // SwiftUI shared by the app and the widget, so the floating bar and the
         // desktop widget can't drift apart visually.
-        .target(name: "PomodoroUI", dependencies: ["PomodoroCore"]),
+        .target(name: "PomodoroUI", dependencies: ["PomodoroCore"], resources: [.process("Resources")]),
 
         .executableTarget(
             name: "Pomodoro",

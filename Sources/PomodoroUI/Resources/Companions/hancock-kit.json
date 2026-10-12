@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "atlas": "hancock-atlas",
+  "poses": [
+    { "edge": "bottom", "open": [155, 8, 230, 470], "blink": [155, 520, 230, 470], "height": 62, "grip": [0.5, 0.043], "sway": 0.65 },
+    { "edge": "top", "open": [576, 149, 390, 300], "blink": [576, 661, 390, 300], "height": 38, "grip": [0.495, 0.90], "sway": 0.45 },
+    { "edge": "leading", "open": [1114, 28, 310, 480], "blink": [1114, 540, 310, 480], "height": 57, "grip": [0.90, 0.16], "sway": 0.5 }
+  ]
+}

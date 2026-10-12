@@ -382,6 +382,10 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if CompanionKit.available(for: settings.character) {
+                CompanionSettingsView(settings: settings)
+            }
+
             if settings.character != .none, !settings.character.isImplemented {
                 Label("Not drawn yet — only the Samurai is available so far.",
                       systemImage: "exclamationmark.triangle.fill")

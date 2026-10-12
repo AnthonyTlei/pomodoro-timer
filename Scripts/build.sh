@@ -38,6 +38,11 @@ rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources" "$APPEX/Contents/MacOS"
 cp "$BIN_DIR/$APP_NAME" "$BUNDLE/Contents/MacOS/$APP_NAME"
 cp Resources/Info.plist "$BUNDLE/Contents/Info.plist"
+# SwiftPM's shared UI artwork must travel with the app, including installs on
+# another Mac. Keep the bundle intact so its manifest and future kits stay together.
+if [[ -d "$BIN_DIR/Pomodoro_PomodoroUI.bundle" ]]; then
+    cp -R "$BIN_DIR/Pomodoro_PomodoroUI.bundle" "$BUNDLE/Contents/Resources/"
+fi
 printf 'APPL????' > "$BUNDLE/Contents/PkgInfo"
 
 cp "$BIN_DIR/$WIDGET_NAME" "$APPEX/Contents/MacOS/$WIDGET_NAME"

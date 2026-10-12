@@ -1,4 +1,6 @@
 import AppKit
+import PomodoroCore
+import PomodoroUI
 import SwiftUI
 import Testing
 @testable import Pomodoro
@@ -66,5 +68,33 @@ struct WindowDraggingTests {
         #expect(host.hitTest(NSPoint(x: pill.minX + 50, y: pill.midY)) is WindowDragView)
         #expect(!(host.hitTest(NSPoint(x: pill.minX + FloatingBar.Metrics.primaryX + 14,
                                      y: pill.midY)) is WindowDragView))
+    }
+
+    @Test("A mounted hanging companion preserves native drag routing")
+    func hangingCompanionDrag() throws {
+        _ = NSApplication.shared
+        let screen = try #require(NSScreen.main)
+        let pill = FloatingBar.pillFrame
+        let host = FloatingBarHostingView(rootView: ZStack {
+            Color.clear
+            HangingCompanion(character: .hancock, mode: .calm, edge: .top, position: 0.5,
+                             pill: pill, screen: .null)
+        })
+        host.geometry = BarGeometry()
+        let window = NSWindow(contentRect: CGRect(x: screen.visibleFrame.midX - 228,
+            y: screen.visibleFrame.midY - 133, width: FloatingBar.panelSize.width,
+            height: FloatingBar.panelSize.height), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        let contact = CGPoint(x: pill.minX + 65, y: pill.midY)
+        let drag = try #require(host.hitTest(contact) as? WindowDragView)
+        let origin = window.frame.origin
+        drag.mouseDown(with: try event(.leftMouseDown, at: contact, window: window))
+        drag.mouseDragged(with: try event(.leftMouseDragged,
+            at: CGPoint(x: contact.x + 25, y: contact.y + 20), window: window))
+        #expect(window.frame.minX == origin.x + 25)
+        #expect(window.frame.minY == origin.y + 20)
+        #expect(host.hitTest(CGPoint(x: pill.midX, y: pill.minY - 20)) == nil)
+        drag.mouseUp(with: try event(.leftMouseUp, at: contact, window: window))
     }
 }
